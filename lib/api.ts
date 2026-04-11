@@ -2,11 +2,16 @@ import type { Conversation, Message } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_BOT_URL
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  token: string,
+  options?: RequestInit
+): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
       ...options?.headers,
     },
   })
@@ -15,20 +20,23 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  getConversations: () =>
-    request<Conversation[]>('/conversations'),
+  getConversations: (token: string) =>
+    request<Conversation[]>('/conversations', token),
 
-  getMessages: (jid: string) =>
-    request<Message[]>(`/conversations/${encodeURIComponent(jid)}/messages`),
+  getMessages: (token: string, jid: string) =>
+    request<Message[]>(
+      `/conversations/${encodeURIComponent(jid)}/messages`,
+      token
+    ),
 
-  updateStatus: (jid: string, status: string) =>
-    request(`/conversations/${encodeURIComponent(jid)}/status`, {
+  updateStatus: (token: string, jid: string, status: string) =>
+    request(`/conversations/${encodeURIComponent(jid)}/status`, token, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),
 
-  sendMessage: (jid: string, text: string) =>
-    request('/send', {
+  sendMessage: (token: string, jid: string, text: string) =>
+    request('/send', token, {
       method: 'POST',
       body: JSON.stringify({ jid, text }),
     }),

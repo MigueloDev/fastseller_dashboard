@@ -2,49 +2,48 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { api } from '@/lib/api'
-import { getSocket } from '@/lib/socket'
-import { IntentBadge } from './IntentBadge'
+import { useApi } from '@/hooks/useApi'
+import { useSocket } from '@/hooks/useSocket'
+import { StatusBadge } from './StatusBadge'
+import { formatPhone, formatTime } from '@/lib/format'
+import toast from 'react-hot-toast'
 import type {
   Conversation,
   IntentDetectedEvent,
   ConversationUpdatedEvent,
-  IntentType,
 } from '@/types'
 import clsx from 'clsx'
+import { Input } from '@/components/ui/input'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Search } from 'lucide-react'
+import { Field } from "@/components/ui/field"
+import { Button } from '@base-ui/react'
+import { ButtonGroup } from './ui/button-group'
 
-function formatPhone(jid: string) {
-  return jid.replace('@s.whatsapp.net', '').replace('@g.us', '')
-}
-
-function formatTime(date: string | null) {
-  if (!date) return ''
-  return new Date(date).toLocaleTimeString('es', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  bot: 'bg-gray-200 text-gray-600',
-  human: 'bg-blue-100 text-blue-700',
-  closed: 'bg-green-100 text-green-700',
+function getInitials(jid: string): string {
+  const phone = formatPhone(jid)
+  const digits = phone.replace(/\D/g, '')
+  return digits.slice(-2)
 }
 
 export function ConversationList() {
+  const api = useApi()
+  const socket = useSocket()
   const router = useRouter()
   const pathname = usePathname()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [alerts, setAlerts] = useState<Set<string>>(new Set())
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     api.getConversations()
       .then(setConversations)
       .catch(console.error)
-  }, [])
+  }, [api])
 
   useEffect(() => {
-    const socket = getSocket()
+    if (!socket) return
 
     socket.on('conversation_updated', (event: ConversationUpdatedEvent) => {
       setConversations(prev => {
@@ -60,7 +59,6 @@ export function ConversationList() {
               new Date(a.lastMessageAt ?? 0).getTime()
             )
         }
-        // Conversación nueva — recargar lista
         api.getConversations().then(setConversations).catch(console.error)
         return prev
       })
@@ -68,13 +66,17 @@ export function ConversationList() {
 
     socket.on('intent_detected', (event: IntentDetectedEvent) => {
       setAlerts(prev => new Set([...prev, event.jid]))
+      toast('Nueva intención de compra detectada', {
+        icon: '🎯',
+        style: { borderLeft: '4px solid #dc2626' },
+      })
     })
 
     return () => {
       socket.off('conversation_updated')
       socket.off('intent_detected')
     }
-  }, [])
+  }, [api, socket])
 
   function handleClick(jid: string) {
     setAlerts(prev => {
@@ -85,55 +87,91 @@ export function ConversationList() {
     router.push(`/inbox/${encodeURIComponent(jid)}`)
   }
 
-  return (
-    <div className="flex-1 overflow-y-auto">
-      {conversations.length === 0 && (
-        <div className="p-4 text-center text-gray-400 text-sm">
-          Sin conversaciones aún
-        </div>
-      )}
-      {conversations.map(conv => {
-        const isActive = pathname === `/inbox/${encodeURIComponent(conv.jid)}`
-        const hasAlert = alerts.has(conv.jid)
-        const lastMsg = conv.messages?.[0]
+  const alertCount = alerts.size
+  const filtered = search.trim()
+    ? conversations.filter(c => formatPhone(c.jid).includes(search.trim()))
+    : conversations
 
-        return (
-          <button
-            key={conv.id}
-            onClick={() => handleClick(conv.jid)}
-            className={clsx(
-              'w-full text-left px-4 py-3 border-b border-gray-100',
-              'hover:bg-gray-50 transition-colors',
-              isActive && 'bg-blue-50 border-l-2 border-l-blue-500',
-            )}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-medium text-sm text-gray-800">
-                {formatPhone(conv.jid)}
-              </span>
-              <span className="text-xs text-gray-400">
-                {formatTime(conv.lastMessageAt)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs text-gray-500 truncate flex-1">
-                {lastMsg?.text ?? 'Sin mensajes'}
-              </p>
-              <div className="flex items-center gap-1 shrink-0">
-                <span className={clsx(
-                  'text-xs px-1.5 py-0.5 rounded-full',
-                  STATUS_COLORS[conv.status],
-                )}>
-                  {conv.status}
-                </span>
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-medium text-gray-900">Conversaciones</span>
+          {alertCount > 0 && (
+            <span className="text-xs font-semibold bg-violet-600 text-white px-2 py-0.5 rounded-full">
+              {alertCount}
+            </span>
+          )}
+        </div>
+        <Field orientation="horizontal">
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por número..."
+            className="w-80% pl-9 h-8 text-sm bg-gray-50 border-gray-200 focus-visible:ring-violet-300" />
+          <ButtonGroup>
+            <Button>
+              <Search className="w-3.5 h-3.5 text-gray-400" />
+            </Button>
+          </ButtonGroup>
+        </Field>
+      </div>
+
+      {/* List */}
+      <ScrollArea className="flex-1">
+        {filtered.length === 0 && (
+          <div className="p-6 text-center text-gray-400 text-xs">
+            {search ? 'Sin resultados' : 'Sin conversaciones aún'}
+          </div>
+        )}
+        {filtered.map(conv => {
+          const isActive = pathname === `/inbox/${encodeURIComponent(conv.jid)}`
+          const hasAlert = alerts.has(conv.jid)
+          const lastMsg = conv.messages?.[0]
+          const initials = getInitials(conv.jid)
+          const displayName = formatPhone(conv.jid)
+
+          return (
+            <button
+              key={conv.id}
+              onClick={() => handleClick(conv.jid)}
+              className={clsx(
+                'w-full text-left px-3 py-3 flex items-center gap-3',
+                'hover:bg-gray-50 transition-colors relative',
+                'border-b border-gray-100',
+                isActive && 'bg-violet-50 border-l-2 border-l-violet-500 pl-[10px]',
+              )}
+            >
+              {/* Avatar */}
+              <div className="relative shrink-0">
+                <Avatar className="bg-violet-100">
+                  <AvatarFallback className="text-violet-700 text-sm font-medium">{initials}</AvatarFallback>
+                </Avatar>
                 {hasAlert && (
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500
+                    rounded-full border-2 border-white animate-pulse" />
                 )}
               </div>
-            </div>
-          </button>
-        )
-      })}
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-sm font-medium text-gray-900 truncate">
+                    {displayName}
+                  </span>
+                  <span className="text-xs text-gray-400 shrink-0 ml-2">
+                    {formatTime(conv.lastMessageAt)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-gray-500 truncate">
+                    {lastMsg?.text ?? 'Sin mensajes'}
+                  </p>
+                  <StatusBadge status={conv.status} />
+                </div>
+              </div>
+            </button>
+          )
+        })}
+      </ScrollArea>
     </div>
   )
 }

@@ -3,20 +3,40 @@ import clsx from 'clsx'
 
 interface Props {
   intent: IntentType
-  pulse?: boolean
+  size?: 'sm' | 'md'
 }
 
-export function IntentBadge({ intent, pulse = false }: Props) {
-  if (!intent || intent === 'off_topic') return null
+const config: Record<string, { label: string; icon: string; className: string }> = {
+  intencion: {
+    label: 'Intención de compra',
+    icon: '🎯',
+    className: 'bg-red-50 text-red-600 border border-red-100',
+  },
+  consulta: {
+    label: 'Consulta',
+    icon: '💬',
+    className: 'bg-blue-50 text-blue-600 border border-blue-100',
+  },
+  saludo: {
+    label: 'Saludo',
+    icon: '👋',
+    className: 'bg-gray-50 text-gray-500 border border-gray-200',
+  },
+}
+
+export function IntentBadge({ intent, size = 'md' }: Props) {
+  if (!intent || intent === 'off_topic' || !config[intent]) return null
+
+  const { label, icon, className } = config[intent]
 
   return (
     <span className={clsx(
-      'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium',
-      intent === 'intencion' && 'bg-red-100 text-red-700',
-      intent === 'consulta' && 'bg-blue-100 text-blue-700',
-      pulse && intent === 'intencion' && 'animate-pulse',
+      'inline-flex items-center gap-1 rounded-full font-medium',
+      size === 'sm' ? 'text-xs px-1.5 py-0.5' : 'text-xs px-2 py-1',
+      className,
     )}>
-      {intent === 'intencion' ? 'Intención de compra' : 'Consulta'}
+      <span style={{ fontSize: 10 }}>{icon}</span>
+      {label}
     </span>
   )
 }

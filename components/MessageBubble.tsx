@@ -1,5 +1,6 @@
 import type { Message } from '@/types'
 import { IntentBadge } from './IntentBadge'
+import { formatMessageTime } from '@/lib/format'
 import clsx from 'clsx'
 
 interface Props {
@@ -8,10 +9,9 @@ interface Props {
 
 export function MessageBubble({ message }: Props) {
   const isOutbound = message.direction === 'outbound'
-  const time = new Date(message.createdAt).toLocaleTimeString('es', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const isBot = isOutbound && message.origin === 'bot'
+  const isManual = isOutbound && message.origin === 'manual'
+  const time = formatMessageTime(message.createdAt)
 
   return (
     <div className={clsx(
@@ -19,24 +19,29 @@ export function MessageBubble({ message }: Props) {
       isOutbound ? 'self-end items-end' : 'self-start items-start',
     )}>
       <div className={clsx(
-        'px-4 py-2 rounded-2xl text-sm',
-        isOutbound && message.origin === 'manual' &&
-          'bg-green-600 text-white rounded-br-sm',
-        isOutbound && message.origin === 'bot' &&
-          'bg-green-200 text-green-900 rounded-br-sm',
-        !isOutbound &&
-          'bg-white text-gray-800 rounded-bl-sm shadow-sm',
+        'px-4 py-2.5 text-[13px] leading-relaxed rounded-sm',
+        !isOutbound && [
+          'bg-white text-gray-900 border border-gray-200',
+          'shadow-[0_1px_2px_rgba(0,0,0,0.05)]',
+        ],
+        isBot && [
+          'bg-[#dcfce7] text-[#15803d]',
+        ],
+        isManual && [
+          'bg-[#6c47ff] text-white',
+        ],
       )}>
         {message.text}
       </div>
-      <div className="flex items-center gap-1 mt-1 px-1">
-        <span className="text-xs text-gray-400">{time}</span>
-        {isOutbound && (
-          <span className="text-xs text-gray-400">
-            {message.origin === 'manual' ? '👤' : '🤖'}
-          </span>
+      <div className="flex items-center gap-1.5 mt-1 px-1">
+        <span className="text-[10px] text-gray-400">{time}</span>
+        {isBot && (
+          <span className="text-[10px] text-gray-400">🤖 Bot</span>
         )}
-        <IntentBadge intent={message.intent} />
+        {isManual && message.agentName && (
+          <span className="text-[10px] text-gray-400">{message.agentName}</span>
+        )}
+        <IntentBadge intent={message.intent} size="sm" />
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 export type ConversationStatus = 'bot' | 'human' | 'closed'
 export type MessageDirection = 'inbound' | 'outbound'
 export type MessageOrigin = 'bot' | 'manual' | 'client'
-export type IntentType = 'consulta' | 'intencion' | 'off_topic' | null
+export type IntentType = 'consulta' | 'intencion' | 'saludo' | 'off_topic' | null
 
 export interface Message {
   id: string
@@ -10,6 +10,7 @@ export interface Message {
   text: string
   intent: IntentType
   origin: MessageOrigin | null
+  agentName?: string | null
   createdAt: string
 }
 
