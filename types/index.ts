@@ -19,6 +19,7 @@ export interface Conversation {
   jid: string
   status: ConversationStatus
   lastMessageAt: string | null
+  contactName: string | null
   createdAt: string
   messages?: Message[]
 }

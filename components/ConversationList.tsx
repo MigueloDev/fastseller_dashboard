@@ -127,7 +127,7 @@ export function ConversationList() {
           const hasAlert = alerts.has(conv.jid)
           const lastMsg = conv.messages?.[0]
           const initials = getInitials(conv.jid)
-          const displayName = formatPhone(conv.jid)
+          const displayName = conv.contactName ?? formatPhone(conv.jid)
 
           return (
             <button
