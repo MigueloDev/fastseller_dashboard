@@ -7,7 +7,7 @@ import { useSocket } from '@/hooks/useSocket'
 import { MessageBubble } from './MessageBubble'
 import { StatusBadge } from './StatusBadge'
 import { formatPhone } from '@/lib/format'
-import type { Message, Conversation } from '@/types'
+import type { Message, Conversation, ConversationStatus, NewMessageEvent, ConversationStatusChangedEvent } from '@/types'
 import clsx from 'clsx'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -83,20 +83,57 @@ export function ChatWindow({ jid }: Props) {
 
     socket.emit('join_conversation', jid)
 
-    socket.on('new_message', (msg: Message & { jid: string }) => {
+    function handleNewMessage(msg: NewMessageEvent) {
       if (msg.jid !== jid) return
-      setMessages(prev => [...prev, msg])
-    })
+      setMessages(prev => {
+        const exists = prev.find(m => m.id === msg.id && !m.id.startsWith('temp-'))
+        if (exists) return prev
+
+        if (msg.direction === 'outbound' && msg.origin === 'manual') {
+          let optimisticIdx = -1
+          for (let i = prev.length - 1; i >= 0; i--) {
+            if (prev[i].id.startsWith('temp-') && prev[i].text === msg.text) {
+              optimisticIdx = i
+              break
+            }
+          }
+          if (optimisticIdx !== -1) {
+            const next = [...prev]
+            next[optimisticIdx] = msg
+            return next
+          }
+        }
+
+        return [...prev, msg]
+      })
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 50)
+    }
+
+    function handleStatusChanged(event: ConversationStatusChangedEvent) {
+      if (event.jid !== jid) return
+      setConversation(prev =>
+        prev ? { ...prev, status: event.status } : prev,
+      )
+    }
+
+    socket.on('new_message', handleNewMessage)
+    socket.on('conversation_status_changed', handleStatusChanged)
 
     return () => {
       socket.emit('leave_conversation', jid)
-      socket.off('new_message')
+      socket.off('new_message', handleNewMessage)
+      socket.off('conversation_status_changed', handleStatusChanged)
     }
   }, [jid, socket])
 
   useEffect(() => {
-    /* bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) */
-  }, [messages])
+    if (messages.length > 0) {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length === 0 ? 0 : 1])
 
   function handleInput() {
     const el = textareaRef.current
@@ -107,15 +144,33 @@ export function ChatWindow({ jid }: Props) {
 
   async function handleSend() {
     if (!input.trim() || sending) return
+    const text = input.trim()
     setSending(true)
+
+    const optimisticMsg: Message = {
+      id: `temp-${Date.now()}`,
+      conversationId: conversation?.id ?? '',
+      direction: 'outbound',
+      text,
+      intent: null,
+      origin: 'manual',
+      agentName: null,
+      createdAt: new Date().toISOString(),
+      sending: true,
+    }
+    setMessages(prev => [...prev, optimisticMsg])
+    setInput('')
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+
     try {
-      await api.sendMessage(jid, input.trim())
-      setInput('')
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
-      }
+      await api.sendMessage(jid, text)
     } catch (err) {
       console.error('Error enviando mensaje:', err)
+      setMessages(prev =>
+        prev.map(m => m.id === optimisticMsg.id ? { ...m, failed: true } : m),
+      )
     } finally {
       setSending(false)
     }

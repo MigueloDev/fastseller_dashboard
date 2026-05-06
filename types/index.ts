@@ -12,6 +12,8 @@ export interface Message {
   origin: MessageOrigin | null
   agentName?: string | null
   createdAt: string
+  sending?: boolean
+  failed?: boolean
 }
 
 export interface Conversation {
@@ -24,17 +26,29 @@ export interface Conversation {
   messages?: Message[]
 }
 
+export interface NewMessageEvent extends Message {
+  jid: string
+}
+
+export interface ConversationUpdatedEvent {
+  jid: string
+  lastMessage: string | null
+  lastMessageAt: string
+  status: ConversationStatus | null
+  intent: IntentType
+  updatedBy: string
+}
+
+export interface ConversationStatusChangedEvent {
+  jid: string
+  status: ConversationStatus
+  updatedBy: string
+}
+
 export interface IntentDetectedEvent {
   jid: string
   text: string
   confidence: number
   reason: string
   timestamp: string
-}
-
-export interface ConversationUpdatedEvent {
-  jid: string
-  intent: IntentType
-  lastMessage?: string
-  lastMessageAt: string
 }

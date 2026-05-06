@@ -9,9 +9,12 @@ import { formatPhone, formatTime } from '@/lib/format'
 import toast from 'react-hot-toast'
 import type {
   Conversation,
+  ConversationStatus,
   IntentDetectedEvent,
   ConversationUpdatedEvent,
+  ConversationStatusChangedEvent,
 } from '@/types'
+import { playNotification } from '@/lib/sound'
 import clsx from 'clsx'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -45,13 +48,24 @@ export function ConversationList() {
   useEffect(() => {
     if (!socket) return
 
-    socket.on('conversation_updated', (event: ConversationUpdatedEvent) => {
+    function handleConversationUpdated(event: ConversationUpdatedEvent) {
       setConversations(prev => {
         const exists = prev.find(c => c.jid === event.jid)
         if (exists) {
           return prev
             .map(c => c.jid === event.jid
-              ? { ...c, lastMessageAt: event.lastMessageAt }
+              ? {
+                  ...c,
+                  lastMessageAt: event.lastMessageAt,
+                  ...(event.status && { status: event.status }),
+                  messages: event.lastMessage && c.messages?.[0]
+                    ? [{
+                        ...c.messages[0],
+                        text: event.lastMessage,
+                        createdAt: event.lastMessageAt,
+                      }]
+                    : c.messages,
+                }
               : c
             )
             .sort((a, b) =>
@@ -62,19 +76,53 @@ export function ConversationList() {
         api.getConversations().then(setConversations).catch(console.error)
         return prev
       })
-    })
+    }
 
-    socket.on('intent_detected', (event: IntentDetectedEvent) => {
+    function handleIntentDetected(event: IntentDetectedEvent) {
       setAlerts(prev => new Set([...prev, event.jid]))
-      toast('Nueva intención de compra detectada', {
-        icon: '🎯',
-        style: { borderLeft: '4px solid #dc2626' },
-      })
-    })
+      playNotification()
+      toast.custom((t) => (
+        <div className={clsx(
+          'bg-white border-l-4 border-red-500 rounded-lg',
+          'shadow-lg px-4 py-3 flex items-start gap-3 max-w-sm',
+          t.visible ? 'opacity-100' : 'opacity-0',
+        )}>
+          <span className="text-xl shrink-0">🎯</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900">Intención de compra</p>
+            <p className="text-xs text-gray-500 truncate mt-0.5">{formatPhone(event.jid)}</p>
+            <p className="text-xs text-gray-400 mt-0.5 truncate">"{event.text}"</p>
+          </div>
+          <button
+            onClick={() => {
+              toast.dismiss(t.id)
+              router.push(`/inbox/${encodeURIComponent(event.jid)}`)
+            }}
+            className="text-xs text-violet-600 font-medium hover:text-violet-700 shrink-0 mt-0.5"
+          >
+            Ver →
+          </button>
+        </div>
+      ), { duration: 8000 })
+    }
+
+    function handleStatusChanged(event: ConversationStatusChangedEvent) {
+      setConversations(prev =>
+        prev.map(c => c.jid === event.jid
+          ? { ...c, status: event.status }
+          : c,
+        ),
+      )
+    }
+
+    socket.on('conversation_updated', handleConversationUpdated)
+    socket.on('intent_detected', handleIntentDetected)
+    socket.on('conversation_status_changed', handleStatusChanged)
 
     return () => {
-      socket.off('conversation_updated')
-      socket.off('intent_detected')
+      socket.off('conversation_updated', handleConversationUpdated)
+      socket.off('intent_detected', handleIntentDetected)
+      socket.off('conversation_status_changed', handleStatusChanged)
     }
   }, [api, socket])
 

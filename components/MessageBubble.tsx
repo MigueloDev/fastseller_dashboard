@@ -41,6 +41,12 @@ export function MessageBubble({ message }: Props) {
         {isManual && message.agentName && (
           <span className="text-[10px] text-gray-400">{message.agentName}</span>
         )}
+        {message.sending && (
+          <span className="text-[10px] text-gray-400">Enviando...</span>
+        )}
+        {message.failed && (
+          <span className="text-[10px] text-red-400">Error al enviar</span>
+        )}
         <IntentBadge intent={message.intent} size="sm" />
       </div>
     </div>
