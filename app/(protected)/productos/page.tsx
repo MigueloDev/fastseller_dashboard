@@ -100,7 +100,7 @@ export default function ProductosPage() {
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50">
-      <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-4">
+      <div className="mx-auto w-full max-w-[1600px] space-y-3 p-4 md:px-6 md:py-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-lg font-semibold text-gray-900">Productos</h1>

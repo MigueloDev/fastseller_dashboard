@@ -15,7 +15,11 @@ import type {
   ReceivablesResponse,
   Sale,
   SalesPage,
+  SalesReport,
+  KardexReport,
+  ProductMovementsReport,
   StockSummaryItem,
+  MetricsSummary,
 } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_BOT_URL
@@ -175,6 +179,7 @@ export const api = {
     token: string,
     params: {
       status?: string
+      delivery?: string
       customerId?: string
       from?: string
       to?: string
@@ -184,6 +189,7 @@ export const api = {
   ) => {
     const qs = new URLSearchParams()
     if (params.status) qs.set('status', params.status)
+    if (params.delivery) qs.set('delivery', params.delivery)
     if (params.customerId) qs.set('customerId', params.customerId)
     if (params.from) qs.set('from', params.from)
     if (params.to) qs.set('to', params.to)
@@ -201,6 +207,12 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  updateSale: (token: string, saleId: string, data: CreateSalePayload) =>
+    request<Sale>(`/sales/${saleId}`, token, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
   addPayment: (token: string, saleId: string, data: CreatePaymentPayload) =>
     request<Sale>(`/sales/${saleId}/payments`, token, {
       method: 'POST',
@@ -210,6 +222,84 @@ export const api = {
   voidSale: (token: string, saleId: string) =>
     request<Sale>(`/sales/${saleId}/void`, token, { method: 'POST' }),
 
+  deliverSale: (token: string, saleId: string) =>
+    request<Sale>(`/sales/${saleId}/deliver`, token, { method: 'POST' }),
+
+  undeliverSale: (token: string, saleId: string) =>
+    request<Sale>(`/sales/${saleId}/undeliver`, token, { method: 'POST' }),
+
   getReceivables: (token: string) =>
     request<ReceivablesResponse>('/receivables', token),
+
+  getMetricsSummary: (
+    token: string,
+    params: { from?: string; to?: string } = {}
+  ) => {
+    const qs = new URLSearchParams()
+    if (params.from) qs.set('from', params.from)
+    if (params.to) qs.set('to', params.to)
+    const query = qs.toString()
+    return request<MetricsSummary>(
+      `/metrics/summary${query ? `?${query}` : ''}`,
+      token
+    )
+  },
+
+  getSalesReport: (
+    token: string,
+    params: {
+      from?: string
+      to?: string
+      status?: string
+      delivery?: string
+      customerId?: string
+    } = {}
+  ) => {
+    const qs = new URLSearchParams()
+    if (params.from) qs.set('from', params.from)
+    if (params.to) qs.set('to', params.to)
+    if (params.status) qs.set('status', params.status)
+    if (params.delivery) qs.set('delivery', params.delivery)
+    if (params.customerId) qs.set('customerId', params.customerId)
+    const query = qs.toString()
+    return request<SalesReport>(
+      `/reports/sales${query ? `?${query}` : ''}`,
+      token
+    )
+  },
+
+  getKardex: (
+    token: string,
+    params: {
+      productId: string
+      variantId?: string | null
+      from?: string
+      to?: string
+    }
+  ) => {
+    const qs = new URLSearchParams()
+    qs.set('productId', params.productId)
+    if (params.variantId) qs.set('variantId', params.variantId)
+    if (params.from) qs.set('from', params.from)
+    if (params.to) qs.set('to', params.to)
+    return request<KardexReport>(`/reports/kardex?${qs.toString()}`, token)
+  },
+
+  getProductMovementsReport: (
+    token: string,
+    params: {
+      productId: string
+      from?: string
+      to?: string
+    }
+  ) => {
+    const qs = new URLSearchParams()
+    qs.set('productId', params.productId)
+    if (params.from) qs.set('from', params.from)
+    if (params.to) qs.set('to', params.to)
+    return request<ProductMovementsReport>(
+      `/reports/movements?${qs.toString()}`,
+      token
+    )
+  },
 }

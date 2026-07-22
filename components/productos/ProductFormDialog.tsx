@@ -16,7 +16,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { PriceInputs } from './PriceInputs'
+import {
+  PriceInputs,
+  emptyTier,
+  type PriceTierDraft,
+} from './PriceInputs'
 import { VariantInputs, type VariantDraft } from './VariantInputs'
 
 type Props = {
@@ -27,20 +31,30 @@ type Props = {
   onSaved: () => void
 }
 
-function priceOf(product: Product | null, ref: 'REF_USD' | 'REF_BS'): string {
-  if (!product) return ''
-  const p =
-    product.prices.find((x) => x.ref === ref && x.active) ??
-    product.prices.find((x) => x.ref === ref)
-  return p ? String(p.amount) : ''
-}
-
-function priceId(product: Product | null, ref: 'REF_USD' | 'REF_BS'): string | undefined {
-  if (!product) return undefined
-  return (
-    product.prices.find((x) => x.ref === ref && x.active)?.id ??
-    product.prices.find((x) => x.ref === ref)?.id
+function tiersFromProduct(product: Product | null): PriceTierDraft[] {
+  if (!product) return [emptyTier('1')]
+  const active = product.prices.filter((p) => p.active !== false)
+  const byMin = new Map<number, PriceTierDraft>()
+  for (const p of active) {
+    const minQty = p.minQty ?? 1
+    const existing = byMin.get(minQty) ?? {
+      key: `tier-${minQty}`,
+      minQty: String(minQty),
+      refUsd: '',
+      refBs: '',
+    }
+    if (p.ref === 'REF_USD') existing.refUsd = String(p.amount)
+    if (p.ref === 'REF_BS') existing.refBs = String(p.amount)
+    byMin.set(minQty, existing)
+  }
+  const tiers = [...byMin.values()].sort(
+    (a, b) => Number(a.minQty) - Number(b.minQty),
   )
+  if (tiers.length === 0) return [emptyTier('1')]
+  if (!tiers.some((t) => Number(t.minQty) === 1)) {
+    tiers.unshift(emptyTier('1'))
+  }
+  return tiers
 }
 
 export function ProductFormDialog({
@@ -57,8 +71,7 @@ export function ProductFormDialog({
   const [sku, setSku] = useState('')
   const [brand, setBrand] = useState('')
   const [description, setDescription] = useState('')
-  const [refUsd, setRefUsd] = useState('')
-  const [refBs, setRefBs] = useState('')
+  const [tiers, setTiers] = useState<PriceTierDraft[]>([emptyTier('1')])
   const [minStock, setMinStock] = useState('')
   const [variants, setVariants] = useState<VariantDraft[]>([])
   const [saving, setSaving] = useState(false)
@@ -74,12 +87,11 @@ export function ProductFormDialog({
         ? String(product.minStock)
         : '',
     )
-    setRefUsd(priceOf(product, 'REF_USD'))
-    setRefBs(priceOf(product, 'REF_BS'))
+    setTiers(tiersFromProduct(product))
     setVariants(
       (product?.variants ?? [])
-        .filter((v) => product?.active !== false ? v.active : true)
-        .map((v) => ({ id: v.id, name: v.name, sku: v.sku ?? '' }))
+        .filter((v) => (product?.active !== false ? v.active : true))
+        .map((v) => ({ id: v.id, name: v.name, sku: v.sku ?? '' })),
     )
   }, [open, product])
 
@@ -88,13 +100,6 @@ export function ProductFormDialog({
     const trimmed = name.trim()
     if (!trimmed) {
       toast.error('El nombre es requerido')
-      return
-    }
-
-    const usd = Number(refUsd)
-    const bs = Number(refBs)
-    if (!(usd > 0) || !(bs > 0)) {
-      toast.error('REF_USD y REF_BS deben ser mayores a 0')
       return
     }
 
@@ -114,6 +119,49 @@ export function ProductFormDialog({
       minStockValue = n
     }
 
+    const seen = new Set<number>()
+    const prices: NonNullable<ProductWritePayload['prices']> = []
+    let hasBase = false
+
+    for (const tier of tiers) {
+      const minQty = Number(tier.minQty)
+      if (!Number.isInteger(minQty) || minQty < 1) {
+        toast.error('Cada nivel necesita un mínimo entero ≥ 1')
+        return
+      }
+      if (seen.has(minQty)) {
+        toast.error(`Nivel duplicado: desde ${minQty}`)
+        return
+      }
+      seen.add(minQty)
+      if (minQty === 1) hasBase = true
+
+      const usd = Number(tier.refUsd)
+      const bs = Number(tier.refBs)
+      if (!(usd > 0) || !(bs > 0)) {
+        toast.error(`Nivel desde ${minQty}: REF_USD y REF_BS deben ser > 0`)
+        return
+      }
+
+      prices.push(
+        {
+          ref: 'REF_USD',
+          amount: Math.round(usd * 100) / 100,
+          minQty,
+        },
+        {
+          ref: 'REF_BS',
+          amount: Math.round(bs * 100) / 100,
+          minQty,
+        },
+      )
+    }
+
+    if (!hasBase) {
+      toast.error('Debe existir un nivel con cantidad mínima 1')
+      return
+    }
+
     const payload: ProductWritePayload = {
       name: trimmed,
       sku: sku.trim() || null,
@@ -125,18 +173,7 @@ export function ProductFormDialog({
         name: v.name.trim(),
         sku: v.sku.trim() || null,
       })),
-      prices: [
-        {
-          ...(priceId(product, 'REF_USD') ? { id: priceId(product, 'REF_USD') } : {}),
-          ref: 'REF_USD',
-          amount: Math.round(usd * 100) / 100,
-        },
-        {
-          ...(priceId(product, 'REF_BS') ? { id: priceId(product, 'REF_BS') } : {}),
-          ref: 'REF_BS',
-          amount: Math.round(bs * 100) / 100,
-        },
-      ],
+      prices,
     }
 
     setSaving(true)
@@ -163,7 +200,8 @@ export function ProductFormDialog({
         <DialogHeader>
           <DialogTitle>{editing ? 'Editar producto' : 'Nuevo producto'}</DialogTitle>
           <DialogDescription>
-            Precios en USD. REF_BS es el precio USD cuando el cliente paga en bolívares.
+            Precios en USD por cantidad. REF_BS es el precio USD cuando el cliente
+            paga en bolívares.
           </DialogDescription>
         </DialogHeader>
 
@@ -225,13 +263,7 @@ export function ProductFormDialog({
           </div>
 
           <VariantInputs variants={variants} onChange={setVariants} />
-          <PriceInputs
-            refUsd={refUsd}
-            refBs={refBs}
-            onChangeUsd={setRefUsd}
-            onChangeBs={setRefBs}
-            rates={rates}
-          />
+          <PriceInputs tiers={tiers} onChange={setTiers} rates={rates} />
 
           <DialogFooter>
             <Button

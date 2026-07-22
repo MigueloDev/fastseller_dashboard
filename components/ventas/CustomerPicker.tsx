@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatCedulaDisplay } from '@/lib/ve/cedula'
 import { formatPhoneDisplay } from '@/lib/ve/phone'
-import { CreateCustomerDialog } from '@/components/ventas/CreateCustomerDialog'
+import { CustomerFormDialog } from '@/components/clientes/CustomerFormDialog'
 
 type Props = {
   value: Customer | null
@@ -47,6 +47,7 @@ export function CustomerPicker({ value, onChange }: Props) {
     if (!debounced) {
       setResults([])
       setStatus('idle')
+      setOpen(false)
       return
     }
 
@@ -94,6 +95,7 @@ export function CustomerPicker({ value, onChange }: Props) {
     setDebounced('')
     setResults([])
     setStatus('idle')
+    setOpen(false)
   }
 
   if (value) {
@@ -123,97 +125,126 @@ export function CustomerPicker({ value, onChange }: Props) {
     )
   }
 
-  const showPanel = open && (status === 'loading' || status === 'done' || status === 'error')
+  const showPanel =
+    open && (status === 'loading' || status === 'done' || status === 'error')
   const empty =
     status === 'done' && debounced.length > 0 && results.length === 0
 
   return (
-    <div ref={wrapRef} className="relative">
-      <Input
-        role="combobox"
-        aria-expanded={showPanel}
-        aria-controls={listId}
-        aria-autocomplete="list"
-        placeholder="Buscar por cédula o nombre…"
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value)
-          setOpen(true)
-        }}
-        onFocus={() => {
-          if (debounced || status === 'loading') setOpen(true)
-        }}
-      />
+    <div ref={wrapRef} className="flex flex-wrap items-start gap-2">
+      {/* relative solo en el input: el listado cae debajo, no sobre el flex row */}
+      <div className="relative min-w-0 flex-1 basis-48">
+        <Input
+          role="combobox"
+          aria-expanded={showPanel}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          placeholder="Buscar por cédula o nombre…"
+          value={query}
+          onChange={(e) => {
+            const next = e.target.value
+            setQuery(next)
+            if (!next.trim()) {
+              setOpen(false)
+              setResults([])
+              setStatus('idle')
+            } else {
+              setOpen(true)
+            }
+          }}
+          onFocus={() => {
+            if (debounced || status === 'loading') setOpen(true)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault()
+              setOpen(false)
+            }
+          }}
+        />
 
-      {showPanel && (
-        <div
-          id={listId}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-md"
-        >
-          {status === 'loading' && (
-            <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Buscando…
-            </div>
-          )}
+        {showPanel && (
+          <div
+            id={listId}
+            role="listbox"
+            className="absolute left-0 top-full z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-md"
+          >
+            {status === 'loading' && (
+              <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Buscando…
+              </div>
+            )}
 
-          {status === 'error' && (
-            <p className="px-3 py-2 text-sm text-red-600">
-              Error al buscar. Intenta de nuevo.
-            </p>
-          )}
-
-          {status === 'done' &&
-            results.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                role="option"
-                className="flex w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-violet-50"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => select(c)}
-              >
-                {labelOf(c)}
-              </button>
-            ))}
-
-          {empty && (
-            <div className="space-y-2 px-3 py-2">
-              <p className="text-sm text-gray-500">
-                Sin resultados para “{debounced}”
+            {status === 'error' && (
+              <p className="px-3 py-2 text-sm text-red-600">
+                Error al buscar. Intenta de nuevo.
               </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setCreateOpen(true)}
-              >
-                <UserPlus className="mr-1 h-4 w-4" />
-                Registrar cliente
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+            )}
 
-      {!empty && debounced.length > 0 && status === 'done' && (
-        <button
-          type="button"
-          className="mt-1 text-xs text-violet-700 hover:underline"
-          onClick={() => setCreateOpen(true)}
-        >
-          ¿No está? Registrar cliente
-        </button>
-      )}
+            {status === 'done' &&
+              results.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="option"
+                  className="flex w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-violet-50"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => select(c)}
+                >
+                  {labelOf(c)}
+                </button>
+              ))}
 
-      <CreateCustomerDialog
+            {empty && (
+              <div className="space-y-2 px-3 py-2">
+                <p className="text-sm text-gray-500">
+                  Sin resultados para “{debounced}”
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setCreateOpen(true)}
+                >
+                  <UserPlus className="mr-1 h-4 w-4" />
+                  Registrar cliente
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!empty && debounced.length > 0 && status === 'done' && (
+          <button
+            type="button"
+            className="mt-1 text-xs text-violet-700 hover:underline"
+            onClick={() => setCreateOpen(true)}
+          >
+            ¿No está? Registrar cliente
+          </button>
+        )}
+      </div>
+
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="shrink-0"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setCreateOpen(true)}
+      >
+        <UserPlus className="mr-1 h-4 w-4" />
+        Registrar cliente
+      </Button>
+
+      <CustomerFormDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
         initialQuery={query || debounced}
-        onCreated={select}
+        onSaved={select}
       />
     </div>
   )

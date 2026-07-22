@@ -30,6 +30,7 @@ export function formatBs(n: number): string {
 }
 
 export function rateAgeLabel(fetchedAt: string | undefined | null): string {
+
   if (!fetchedAt) return 'sin tasa'
   const ms = Date.now() - new Date(fetchedAt).getTime()
   if (!Number.isFinite(ms) || ms < 0) return 'ahora'
@@ -49,16 +50,42 @@ export function balanceLabel(
 ): string {
   const usd = formatUsd(balanceUsd)
   if (balanceBs == null || !bsRate) return usd
-  return `${usd} ≈ ${formatBs(balanceBs)} · tasa ${bsRate.rate.toFixed(2)} · ${rateAgeLabel(bsRate.fetchedAt)}`
+  return `${usd} ≈ ${formatBs(balanceBs)} · tasa ${bsRate.rate.toFixed(2)}`
 }
 
 export function priceOf(
   prices: Array<{ ref: PriceRef; amount: number; active: boolean; minQty: number }>,
   ref: PriceRef,
+  qty = 1,
 ): number | null {
-  const p =
-    prices.find((x) => x.ref === ref && x.active && x.minQty === 1) ??
-    prices.find((x) => x.ref === ref && x.active) ??
-    prices.find((x) => x.ref === ref)
-  return p ? Number(p.amount) : null
+  if (!Number.isFinite(qty) || qty < 1) return null
+  const candidates = prices
+    .filter((x) => x.ref === ref && x.active !== false)
+    .filter((x) => (x.minQty ?? 1) <= qty)
+  if (candidates.length === 0) {
+    // fallback legado: primer precio del ref sin mirar qty
+    const legacy =
+      prices.find((x) => x.ref === ref && x.active) ??
+      prices.find((x) => x.ref === ref)
+    return legacy ? Number(legacy.amount) : null
+  }
+  let best = candidates[0]
+  for (let i = 1; i < candidates.length; i++) {
+    const cur = candidates[i]
+    if ((cur.minQty ?? 1) > (best.minQty ?? 1)) best = cur
+  }
+  return Number(best.amount)
+}
+
+/** Suma cantidades por productId (mismas reglas que backend/src/sales/pricing.js). */
+export function qtyByProduct(
+  items: Array<{ productId: string; quantity: number | string }>,
+): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const it of items) {
+    if (!it.productId) continue
+    const q = Number(it.quantity) || 0
+    map.set(it.productId, (map.get(it.productId) ?? 0) + q)
+  }
+  return map
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import clsx from 'clsx'
+import { cn } from '@/lib/utils'
 
 interface Props {
   href: string
@@ -12,7 +12,10 @@ interface Props {
 
 export function NavLink({ href, label, disabled }: Props) {
   const pathname = usePathname()
-  const isActive = !disabled && pathname.startsWith(href)
+  // ponytail: "/" matches everything with startsWith — exact only for home
+  const isActive =
+    !disabled &&
+    (href === '/' ? pathname === '/' : pathname.startsWith(href))
 
   if (disabled) {
     return (
@@ -28,7 +31,7 @@ export function NavLink({ href, label, disabled }: Props) {
   return (
     <Link
       href={href}
-      className={clsx(
+      className={cn(
         'px-3 py-1.5 rounded-md text-sm transition-colors',
         isActive
           ? 'bg-violet-50 text-violet-700 font-medium'

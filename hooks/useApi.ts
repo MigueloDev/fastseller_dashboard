@@ -95,6 +95,7 @@ export function useApi() {
 
     getSales: (params?: {
       status?: string
+      delivery?: string
       customerId?: string
       from?: string
       to?: string
@@ -107,12 +108,45 @@ export function useApi() {
     createSale: (data: CreateSalePayload) =>
       withToken(token => api.createSale(token, data)),
 
+    updateSale: (saleId: string, data: CreateSalePayload) =>
+      withToken(token => api.updateSale(token, saleId, data)),
+
     addPayment: (saleId: string, data: CreatePaymentPayload) =>
       withToken(token => api.addPayment(token, saleId, data)),
 
     voidSale: (saleId: string) =>
       withToken(token => api.voidSale(token, saleId)),
 
+    deliverSale: (saleId: string) =>
+      withToken(token => api.deliverSale(token, saleId)),
+
+    undeliverSale: (saleId: string) =>
+      withToken(token => api.undeliverSale(token, saleId)),
+
     getReceivables: () => withToken(token => api.getReceivables(token)),
+
+    getMetricsSummary: (params?: { from?: string; to?: string }) =>
+      withToken(token => api.getMetricsSummary(token, params)),
+
+    getSalesReport: (params?: {
+      from?: string
+      to?: string
+      status?: string
+      delivery?: string
+      customerId?: string
+    }) => withToken(token => api.getSalesReport(token, params)),
+
+    getKardex: (params: {
+      productId: string
+      variantId?: string | null
+      from?: string
+      to?: string
+    }) => withToken(token => api.getKardex(token, params)),
+
+    getProductMovementsReport: (params: {
+      productId: string
+      from?: string
+      to?: string
+    }) => withToken(token => api.getProductMovementsReport(token, params)),
   }), [withToken])
 }

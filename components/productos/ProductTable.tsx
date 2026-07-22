@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useEffect, useState } from 'react'
+import Link from 'next/link'
 import type {
   ExchangeRates,
   Product,
@@ -41,12 +42,23 @@ type Props = {
 }
 
 function amountFor(product: Product, ref: 'REF_USD' | 'REF_BS'): number | null {
+  const active = product.prices.filter((p) => p.ref === ref && p.active !== false)
   const price =
-    product.prices.find((p) => p.ref === ref && p.active) ??
+    active.find((p) => (p.minQty ?? 1) === 1) ??
+    active.sort((a, b) => (a.minQty ?? 1) - (b.minQty ?? 1))[0] ??
     product.prices.find((p) => p.ref === ref)
   if (!price) return null
   const n = Number(price.amount)
   return Number.isFinite(n) ? n : null
+}
+
+function tierCount(product: Product): number {
+  const mins = new Set(
+    product.prices
+      .filter((p) => p.active !== false)
+      .map((p) => p.minQty ?? 1),
+  )
+  return mins.size
 }
 
 function formatUsd(amount: number | null): string {
@@ -69,6 +81,8 @@ function stockForProduct(stock: StockSummaryItem[], productId: string) {
 
 function StockCell({ items }: { items: StockSummaryItem[] }) {
   const total = items.reduce((sum, i) => sum + i.quantity, 0)
+  const committed = items.reduce((sum, i) => sum + i.committed, 0)
+  const available = items.reduce((sum, i) => sum + i.available, 0)
   const low = items.some((i) => i.lowStock)
 
   if (items.length === 0 || total === 0) {
@@ -80,15 +94,23 @@ function StockCell({ items }: { items: StockSummaryItem[] }) {
   }
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="tabular-nums text-sm font-medium">{total}</span>
-      {low && (
-        <Badge
-          variant="secondary"
-          className="text-[10px] bg-red-50 text-red-700 border-red-200"
-        >
-          bajo
-        </Badge>
+    <div>
+      <div className="flex items-center gap-1.5">
+        <span className="tabular-nums text-sm font-medium">{available}</span>
+        <span className="text-[10px] text-muted-foreground">disp.</span>
+        {low && (
+          <Badge
+            variant="secondary"
+            className="text-[10px] bg-red-50 text-red-700 border-red-200"
+          >
+            bajo
+          </Badge>
+        )}
+      </div>
+      {committed > 0 && (
+        <p className="text-[10px] text-amber-700">
+          {total} en físico · {committed} comprometidas
+        </p>
       )}
     </div>
   )
@@ -145,17 +167,26 @@ function ExpandedStock({ productId }: { productId: string }) {
             className={`text-[10px] ${
               l.lowStock
                 ? 'bg-red-50 text-red-700 border-red-200'
-                : l.quantity === 0
+                : l.available === 0
                   ? 'bg-gray-100 text-gray-600'
                   : ''
             }`}
           >
-            {l.variantName ?? 'Total'}: {l.quantity}
+            {l.variantName ?? 'Total'}: {l.available} disp.
+            {l.committed > 0 ? ` (${l.quantity} físico)` : ''}
           </Badge>
         ))}
       </div>
       <div>
-        <p className="text-xs font-medium text-gray-700 mb-1">Últimos movimientos</p>
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <p className="text-xs font-medium text-gray-700">Últimos movimientos</p>
+          <Link
+            href={`/reportes/movimientos?productId=${productId}`}
+            className="text-xs text-violet-700 hover:underline"
+          >
+            Ver reporte
+          </Link>
+        </div>
         <MovementHistory
           movements={detail.movements}
           variantNames={variantNames}
@@ -177,18 +208,18 @@ export function ProductTable({
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-      <Table>
+      <Table className="min-w-215 table-fixed">
         <TableHeader>
           <TableRow className="bg-gray-50/80">
-            <TableHead className="w-8" />
-            <TableHead>Nombre</TableHead>
-            <TableHead>SKU</TableHead>
-            <TableHead>Stock</TableHead>
-            <TableHead>Variantes</TableHead>
-            <TableHead>USD</TableHead>
-            <TableHead>Bs (USD)</TableHead>
-            <TableHead>Activo</TableHead>
-            <TableHead className="w-24" />
+            <TableHead className="h-8 w-8 px-1" />
+            <TableHead className="h-8 w-[25%]">Nombre</TableHead>
+            <TableHead className="h-8 w-[11%]">SKU</TableHead>
+            <TableHead className="h-8 w-[12%]">Stock</TableHead>
+            <TableHead className="h-8 w-[17%]">Variantes</TableHead>
+            <TableHead className="h-8 w-[7%]">USD</TableHead>
+            <TableHead className="h-8 w-[10%]">Bs (USD)</TableHead>
+            <TableHead className="h-8 w-[6%]">Activo</TableHead>
+            <TableHead className="h-8 w-16 px-1" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -201,11 +232,11 @@ export function ProductTable({
             return (
               <Fragment key={p.id}>
                 <TableRow className={!p.active ? 'opacity-60' : undefined}>
-                  <TableCell>
+                  <TableCell className="px-1 py-1.5">
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon-xs"
                       onClick={() => setExpanded(isOpen ? null : p.id)}
                       aria-label={isOpen ? 'Colapsar' : 'Expandir stock'}
                     >
@@ -216,36 +247,39 @@ export function ProductTable({
                       )}
                     </Button>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-normal py-1.5 leading-tight">
                     <div className="font-medium text-gray-900">{p.name}</div>
                     {p.brand && (
-                      <div className="text-xs text-muted-foreground">{p.brand}</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">{p.brand}</div>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-gray-600">
+                  <TableCell className="overflow-hidden text-ellipsis py-1.5 font-mono text-xs text-gray-600">
                     {p.sku || '—'}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="py-1.5">
                     <StockCell items={items} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-normal py-1.5">
                     {activeVariants.length === 0 ? (
                       <span className="text-xs text-muted-foreground">—</span>
                     ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {activeVariants.map((v) => (
-                          <Badge key={v.id} variant="secondary" className="text-[10px]">
-                            {v.name}
-                          </Badge>
-                        ))}
-                      </div>
+                      <span className="text-xs leading-4 text-gray-700">
+                        {activeVariants.map((v) => v.name).join(' · ')}
+                      </span>
                     )}
                   </TableCell>
-                  <TableCell className="tabular-nums">
-                    {formatUsd(amountFor(p, 'REF_USD'))}
+                  <TableCell className="py-1.5 tabular-nums">
+                    <div className="flex flex-col">
+                      <span>{formatUsd(amountFor(p, 'REF_USD'))}</span>
+                      {tierCount(p) > 1 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {tierCount(p)} niveles
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5 tabular-nums">
+                  <TableCell className="whitespace-normal py-1.5">
+                    <div className="flex flex-wrap items-center gap-1 tabular-nums">
                       {formatUsd(amountFor(p, 'REF_BS'))}
                       {alert && (
                         <Badge
@@ -259,19 +293,19 @@ export function ProductTable({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="py-1.5">
                     <Switch
                       checked={p.active}
                       onCheckedChange={() => onToggleActive(p)}
                       aria-label={p.active ? 'Desactivar' : 'Activar'}
                     />
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-0.5">
+                  <TableCell className="px-1 py-1.5">
+                    <div className="flex items-center">
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon-sm"
+                        size="icon-xs"
                         onClick={() => onAdjust(p)}
                         aria-label="Ajustar stock"
                         title="Ajustar stock"
@@ -281,7 +315,7 @@ export function ProductTable({
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon-sm"
+                        size="icon-xs"
                         onClick={() => onEdit(p)}
                         aria-label="Editar"
                       >

@@ -66,6 +66,7 @@ export interface StockMovement {
   id: string
   productId: string
   variantId: string | null
+  saleId?: string | null
   type: MovementType
   quantity: number
   delta: number
@@ -83,32 +84,29 @@ export interface StockLevel {
   updatedAt: string
 }
 
-export interface StockSummaryItem {
+/** Nivel de stock: `quantity` es físico, `committed` lo reservado por ventas sin entregar. */
+export interface StockLevelRow {
   productId: string
-  productName: string
   variantId: string | null
   variantName: string | null
   minStock: number | null
   quantity: number
+  committed: number
+  available: number
   lowStock: boolean
   levelId: string | null
   updatedAt: string | null
+}
+
+export interface StockSummaryItem extends StockLevelRow {
+  productName: string
 }
 
 export interface ProductStockDetail {
   productId: string
   productName: string
   minStock: number | null
-  levels: Array<{
-    productId: string
-    variantId: string | null
-    variantName: string | null
-    minStock: number | null
-    quantity: number
-    lowStock: boolean
-    levelId: string | null
-    updatedAt: string | null
-  }>
+  levels: StockLevelRow[]
   movements: StockMovement[]
 }
 
@@ -204,6 +202,9 @@ export interface IntentDetectedEvent {
 
 export type SaleStatus = 'PENDIENTE' | 'PAGADA' | 'ANULADA'
 
+/** POR_ENTREGAR reserva stock; ENTREGADA ya descontó el físico (SALIDA en el ledger). */
+export type DeliveryStatus = 'POR_ENTREGAR' | 'ENTREGADA'
+
 export type PaymentMethod =
   | 'EFECTIVO_USD'
   | 'ZELLE'
@@ -273,6 +274,9 @@ export interface Sale {
   id: string
   customerId: string
   status: SaleStatus
+  deliveryStatus: DeliveryStatus
+  deliveredAt: string | null
+  deliveredBy: string | null
   priceRef: PriceRef
   totalUsd: number
   note: string | null
@@ -302,6 +306,8 @@ export interface CreateSalePayload {
     productId: string
     variantId?: string | null
     quantity: number
+    /** Override manual; si falta, el backend elige el nivel por qty agregada. */
+    unitPriceUsd?: number
   }>
   note?: string | null
 }
@@ -323,4 +329,158 @@ export interface ReceivablesResponse {
     totalOwedBs: number | null
     oldestAt: string
   }>
+}
+
+export interface MetricsBucket {
+  count: number
+  totalUsd: number
+}
+
+export interface MetricsTopProduct {
+  productId: string
+  productName: string
+  variantId: string | null
+  variantName: string | null
+  unitsSold: number
+  revenueUsd: number
+}
+
+export interface MetricsDayPoint {
+  date: string
+  totalUsd: number
+}
+
+export interface MetricsLowStock {
+  productName: string
+  variantName: string | null
+  quantity: number
+  committed: number
+  available: number
+  minStock: number | null
+}
+
+export interface SalesReportItem {
+  id: string
+  createdAt: string
+  status: SaleStatus
+  deliveryStatus: DeliveryStatus
+  deliveredAt: string | null
+  priceRef: PriceRef
+  customerId: string
+  customerName: string
+  customerCedula: string | null
+  items: Array<{
+    productId: string
+    productName: string
+    variantId: string | null
+    variantName: string | null
+    quantity: number
+    unitPriceUsd: number
+    subtotalUsd: number
+  }>
+  totalUsd: number
+  collectedUsd: number
+  balanceUsd: number
+  paymentsCount: number
+  note: string | null
+  agentName: string | null
+}
+
+export interface SalesReport {
+  period: { from: string | null; to: string | null }
+  filters: {
+    status: SaleStatus | null
+    delivery: DeliveryStatus | null
+    customerId: string | null
+  }
+  totals: {
+    count: number
+    voidedCount: number
+    totalUsd: number
+    collectedUsd: number
+    collectedCount: number
+    balanceUsd: number
+    totalBs: number | null
+    collectedBs: number | null
+    balanceBs: number | null
+    bsRate: BsRateQuote | null
+  }
+  byPriceRef: { REF_USD: MetricsBucket; REF_BS: MetricsBucket }
+  byDelivery: { POR_ENTREGAR: MetricsBucket; ENTREGADA: MetricsBucket }
+  byProduct: MetricsTopProduct[]
+  sales: SalesReportItem[]
+}
+
+export interface KardexMovement {
+  id: string
+  createdAt: string
+  type: MovementType
+  quantity: number
+  delta: number
+  entrada: number
+  salida: number
+  balance: number
+  unitCost: number | null
+  saleId: string | null
+  note: string | null
+  agentName: string | null
+}
+
+export interface KardexSection {
+  variantId: string | null
+  variantName: string | null
+  opening: number
+  closing: number
+  totalIn: number
+  totalOut: number
+  onHand: number
+  truncated: boolean
+  movements: KardexMovement[]
+}
+
+export interface KardexReport {
+  product: { id: string; name: string; sku: string | null }
+  period: { from: string | null; to: string | null }
+  sections: KardexSection[]
+}
+
+export interface ProductMovementsReportItem {
+  id: string
+  createdAt: string
+  type: MovementType
+  quantity: number
+  delta: number
+  entrada: number
+  salida: number
+  variantId: string | null
+  variantName: string | null
+  saleId: string | null
+  note: string | null
+  agentName: string | null
+}
+
+export interface ProductMovementsReport {
+  product: { id: string; name: string; sku: string | null }
+  period: { from: string | null; to: string | null }
+  totals: { totalIn: number; totalOut: number; count: number }
+  truncated: boolean
+  movements: ProductMovementsReportItem[]
+}
+
+export interface MetricsSummary {
+  period: { from: string | null; to: string | null }
+  sold: MetricsBucket
+  collected: MetricsBucket
+  receivables: {
+    totalUsd: number
+    totalBs: number | null
+    bsRate: BsRateQuote | null
+  }
+  byPriceRef: {
+    REF_USD: MetricsBucket
+    REF_BS: MetricsBucket
+  }
+  topProducts: MetricsTopProduct[]
+  salesByDay: MetricsDayPoint[]
+  lowStock: MetricsLowStock[]
 }

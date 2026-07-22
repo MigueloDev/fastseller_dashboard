@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Plus } from 'lucide-react'
-import type { Customer, ExchangeRates, PriceRef, Product } from '@/types'
+import type { Customer, ExchangeRates, PriceRef, Product, Sale } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +16,7 @@ import {
   formatBs,
   formatUsd,
   priceOf,
+  qtyByProduct,
   rateAgeLabel,
 } from '@/lib/ventas/money'
 
@@ -24,47 +25,107 @@ function newKey() {
 }
 
 function emptyLine(productId = ''): LineDraft {
-  return { key: newKey(), productId, variantId: '', quantity: '1' }
+  return {
+    key: newKey(),
+    productId,
+    variantId: '',
+    quantity: '1',
+    unitPriceUsd: '',
+    priceLocked: false,
+  }
+}
+
+function linesFromSale(sale: Sale): LineDraft[] {
+  if (sale.items.length === 0) return [emptyLine()]
+  // Al editar, congelamos el snapshot: no re-aplicar tiers silenciosamente.
+  return sale.items.map((it) => ({
+    key: newKey(),
+    productId: it.productId,
+    variantId: it.variantId ?? '',
+    quantity: String(it.quantity),
+    unitPriceUsd: String(it.unitPriceUsd),
+    priceLocked: true,
+  }))
+}
+
+function effectiveUnit(
+  line: LineDraft,
+  product: Product | undefined,
+  priceRef: PriceRef,
+  tierQty: number,
+): number | null {
+  if (line.priceLocked && line.unitPriceUsd.trim() !== '') {
+    const n = Number(line.unitPriceUsd)
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
+  if (!product) return null
+  return priceOf(product.prices, priceRef, tierQty || 1)
 }
 
 type Props = {
   products: Product[]
   rates: ExchangeRates | null
+  initialSale?: Sale
 }
 
-export function SaleForm({ products, rates }: Props) {
+export function SaleForm({ products, rates, initialSale }: Props) {
   const api = useApi()
   const router = useRouter()
+  const isEdit = Boolean(initialSale)
   const activeProducts = useMemo(
     () => products.filter((p) => p.active),
     [products],
   )
 
-  const [customer, setCustomer] = useState<Customer | null>(null)
-  const [priceRef, setPriceRef] = useState<PriceRef>('REF_USD')
-  const [lines, setLines] = useState<LineDraft[]>([emptyLine()])
-  const [note, setNote] = useState('')
+  const [customer, setCustomer] = useState<Customer | null>(
+    initialSale?.customer ?? null,
+  )
+  const [priceRef, setPriceRef] = useState<PriceRef>(
+    initialSale?.priceRef ?? 'REF_BS',
+  )
+  const [lines, setLines] = useState<LineDraft[]>(() =>
+    initialSale ? linesFromSale(initialSale) : [emptyLine()],
+  )
+  const [note, setNote] = useState(initialSale?.note ?? '')
   const [saving, setSaving] = useState(false)
+
+  const productQtys = useMemo(
+    () =>
+      qtyByProduct(
+        lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+      ),
+    [lines],
+  )
 
   const totals = useMemo(() => {
     let totalUsd = 0
     let totalBs = 0
+    let selected = 0
     for (const line of lines) {
       const product = activeProducts.find((p) => p.id === line.productId)
       if (!product) continue
       const qty = Number(line.quantity) || 0
       if (qty < 1) continue
-      const u = priceOf(product.prices, 'REF_USD')
-      const b = priceOf(product.prices, 'REF_BS')
-      if (u != null) totalUsd += u * qty
-      if (b != null) totalBs += b * qty
+      const tierQty = productQtys.get(line.productId) ?? qty
+      const unitSelected = effectiveUnit(line, product, priceRef, tierQty)
+      // Override solo aplica al priceRef actual; el otro modo usa el catálogo.
+      const unitUsd =
+        priceRef === 'REF_USD' && unitSelected != null
+          ? unitSelected
+          : priceOf(product.prices, 'REF_USD', tierQty)
+      const unitBs =
+        priceRef === 'REF_BS' && unitSelected != null
+          ? unitSelected
+          : priceOf(product.prices, 'REF_BS', tierQty)
+      if (unitUsd != null) totalUsd += unitUsd * qty
+      if (unitBs != null) totalBs += unitBs * qty
+      if (unitSelected != null) selected += unitSelected * qty
     }
     const rate = rates?.bcv?.rate
-    const selected = priceRef === 'REF_USD' ? totalUsd : totalBs
     const equivBs =
       rate && rate > 0 ? Math.round(selected * rate * 100) / 100 : null
     return { totalUsd, totalBs, selected, equivBs }
-  }, [lines, activeProducts, priceRef, rates])
+  }, [lines, activeProducts, priceRef, rates, productQtys])
 
   async function submit() {
     setSaving(true)
@@ -82,27 +143,40 @@ export function SaleForm({ products, rates }: Props) {
         if (variants.length > 0 && !line.variantId) {
           throw new Error(`Elige variante para ${product.name}`)
         }
-        if (priceOf(product.prices, priceRef) == null) {
+        const tierQty = productQtys.get(line.productId) ?? qty
+        const unit = effectiveUnit(line, product, priceRef, tierQty)
+        if (unit == null) {
           throw new Error(`Sin precio ${priceRef} para ${product.name}`)
         }
         items.push({
           productId: line.productId,
           variantId: variants.length > 0 ? line.variantId : null,
           quantity: qty,
+          unitPriceUsd: Math.round(unit * 100) / 100,
         })
       }
       if (items.length === 0) throw new Error('Agrega al menos un producto')
 
-      const sale = await api.createSale({
+      const payload = {
         customerId: customer.id,
         priceRef,
         items,
         note: note.trim() || null,
-      })
-      toast.success('Venta creada')
+      }
+
+      const sale = initialSale
+        ? await api.updateSale(initialSale.id, payload)
+        : await api.createSale(payload)
+      toast.success(isEdit ? 'Venta actualizada' : 'Venta creada')
       router.push(`/ventas/${sale.id}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error creando venta')
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : isEdit
+            ? 'Error actualizando venta'
+            : 'Error creando venta',
+      )
     } finally {
       setSaving(false)
     }
@@ -119,11 +193,9 @@ export function SaleForm({ products, rates }: Props) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 pb-24">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Nueva venta</h1>
-        <p className="text-sm text-gray-500">
-          Un solo modo de precio para toda la venta. Stock se descuenta al
-          confirmar.
-        </p>
+        <h1 className="text-xl font-semibold text-gray-900">
+          {isEdit ? 'Editar venta' : 'Nueva venta'}
+        </h1>
       </div>
 
       <section className="space-y-2 rounded-lg border border-gray-200 bg-white p-4">
@@ -138,7 +210,16 @@ export function SaleForm({ products, rates }: Props) {
         equivBsUsd={toBs(totals.totalUsd)}
         equivBsRef={toBs(totals.totalBs)}
         rateLabel={rateLabel}
-        onChange={setPriceRef}
+        onChange={(ref) => {
+          setPriceRef(ref)
+          setLines((prev) =>
+            prev.map((l) => ({
+              ...l,
+              unitPriceUsd: '',
+              priceLocked: false,
+            })),
+          )
+        }}
       />
 
       <section className="space-y-3">
@@ -165,6 +246,9 @@ export function SaleForm({ products, rates }: Props) {
             line={line}
             products={activeProducts}
             priceRef={priceRef}
+            tierQty={
+              productQtys.get(line.productId) ?? (Number(line.quantity) || 1)
+            }
             canRemove={lines.length > 1}
             onChange={(patch) =>
               setLines((prev) =>
@@ -209,7 +293,13 @@ export function SaleForm({ products, rates }: Props) {
             onClick={() => void submit()}
             className="min-w-[140px]"
           >
-            {saving ? 'Creando…' : 'Confirmar venta'}
+            {saving
+              ? isEdit
+                ? 'Guardando…'
+                : 'Creando…'
+              : isEdit
+                ? 'Guardar cambios'
+                : 'Confirmar venta'}
           </Button>
         </div>
       </div>
