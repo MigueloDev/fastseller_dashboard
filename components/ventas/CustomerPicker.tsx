@@ -188,6 +188,7 @@ export function CustomerPicker({ value, onChange }: Props) {
                   key={c.id}
                   type="button"
                   role="option"
+                  aria-selected={false}
                   className="flex w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-violet-50"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => select(c)}
