@@ -212,12 +212,13 @@ export function ProductTable({
         <TableHeader>
           <TableRow className="bg-gray-50/80">
             <TableHead className="h-8 w-8 px-1" />
-            <TableHead className="h-8 w-[25%]">Nombre</TableHead>
-            <TableHead className="h-8 w-[11%]">SKU</TableHead>
-            <TableHead className="h-8 w-[12%]">Stock</TableHead>
-            <TableHead className="h-8 w-[17%]">Variantes</TableHead>
+            <TableHead className="h-8 w-[22%]">Nombre</TableHead>
+            <TableHead className="h-8 w-[10%]">SKU</TableHead>
+            <TableHead className="h-8 w-[11%]">Stock</TableHead>
+            <TableHead className="h-8 w-[14%]">Variantes</TableHead>
+            <TableHead className="h-8 w-[8%]">Costo</TableHead>
             <TableHead className="h-8 w-[7%]">USD</TableHead>
-            <TableHead className="h-8 w-[10%]">Bs (USD)</TableHead>
+            <TableHead className="h-8 w-[9%]">Bs (USD)</TableHead>
             <TableHead className="h-8 w-[6%]">Activo</TableHead>
             <TableHead className="h-8 w-16 px-1" />
           </TableRow>
@@ -266,6 +267,11 @@ export function ProductTable({
                       <span className="text-xs leading-4 text-gray-700">
                         {activeVariants.map((v) => v.name).join(' · ')}
                       </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="py-1.5 tabular-nums">
+                    {formatUsd(
+                      p.purchasePriceUsd != null ? Number(p.purchasePriceUsd) : null,
                     )}
                   </TableCell>
                   <TableCell className="py-1.5 tabular-nums">
@@ -326,7 +332,7 @@ export function ProductTable({
                 </TableRow>
                 {isOpen && (
                   <TableRow className="bg-gray-50/50">
-                    <TableCell colSpan={9} className="px-6">
+                    <TableCell colSpan={10} className="px-6">
                       <ExpandedStock productId={p.id} />
                     </TableCell>
                   </TableRow>

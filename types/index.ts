@@ -32,6 +32,8 @@ export interface Product {
   brand: string | null
   active: boolean
   minStock?: number | null
+  /** Costo de compra USD; null en productos legacy sin costo. */
+  purchasePriceUsd?: number | null
   variants: ProductVariant[]
   prices: ProductPrice[]
   createdAt: string
@@ -45,6 +47,7 @@ export interface ProductWritePayload {
   description?: string | null
   active?: boolean
   minStock?: number | null
+  purchasePriceUsd?: number | null
   variants?: Array<{
     id?: string
     name: string
@@ -200,6 +203,20 @@ export interface IntentDetectedEvent {
   timestamp: string
 }
 
+export type WhatsAppConnectionStatus =
+  | 'connecting'
+  | 'waiting_qr'
+  | 'connected'
+  | 'disconnected'
+  | 'logged_out'
+
+export interface WhatsAppState {
+  status: WhatsAppConnectionStatus
+  qr: string | null
+  user: { id: string | null; name: string | null } | null
+  updatedAt: string
+}
+
 export type SaleStatus = 'PENDIENTE' | 'PAGADA' | 'ANULADA'
 
 /** POR_ENTREGAR reserva stock; ENTREGADA ya descontó el físico (SALIDA en el ledger). */
@@ -246,6 +263,8 @@ export interface SaleItem {
   variantId: string | null
   quantity: number
   unitPriceUsd: number
+  /** Snapshot de costo; null en ventas legacy. */
+  unitCostUsd?: number | null
   subtotalUsd: number
   product?: { id: string; name: string; sku: string | null; active: boolean }
   variant?: { id: string; name: string; sku: string | null; active: boolean } | null
@@ -263,6 +282,7 @@ export interface Payment {
   note: string | null
   agentName: string | null
   paidAt: string
+  hasReceipt: boolean
 }
 
 export interface BsRateQuote {
@@ -290,6 +310,10 @@ export interface Sale {
   balanceBs: number | null
   bsRate: BsRateQuote | null
   paymentMismatch: boolean
+  /** null si falta snapshot de costo en algún ítem */
+  costUsd?: number | null
+  profitUsd?: number | null
+  marginPct?: number | null
 }
 
 export interface SalesPage {
@@ -316,6 +340,8 @@ export interface CreatePaymentPayload {
   method: PaymentMethod
   amount: number
   note?: string | null
+  /** data URL or raw base64 WebP produced by the client */
+  receiptBase64?: string | null
 }
 
 export interface ReceivablesResponse {
@@ -483,4 +509,64 @@ export interface MetricsSummary {
   topProducts: MetricsTopProduct[]
   salesByDay: MetricsDayPoint[]
   lowStock: MetricsLowStock[]
+}
+
+export interface CurrencyPurchase {
+  id: string
+  saleId: string
+  binanceRate: number
+  bsSpent: number
+  usdtReceived: number
+  usdCollected: number
+  costUsd: number | null
+  profitUsd: number | null
+  expectedUsdt: number | null
+  note: string | null
+  agentName: string | null
+  purchasedAt: string
+  createdAt: string
+  sale?: {
+    id: string
+    status: SaleStatus
+    totalUsd: number
+    priceRef: PriceRef
+    createdAt: string
+    customer: { id: string; name: string; cedula: string | null } | null
+  }
+}
+
+export interface CurrencyPurchaseSummary {
+  count: number
+  bsSpent: number
+  usdtAcquired: number
+  usdCollected: number
+  profitUsd: number | null
+}
+
+export interface CurrencyPurchasesPage {
+  items: CurrencyPurchase[]
+  total: number
+  limit: number
+  offset: number
+  summary: CurrencyPurchaseSummary
+}
+
+export interface EligibleSaleForFx {
+  id: string
+  status: SaleStatus
+  priceRef: PriceRef
+  totalUsd: number
+  createdAt: string
+  customer: { id: string; name: string; cedula: string | null } | null
+  bsSpent: number
+  usdCollected: number
+  costUsd: number | null
+  paymentsCount: number
+}
+
+export interface CreateCurrencyPurchasePayload {
+  saleId: string
+  binanceRate: number
+  usdtReceived: number
+  note?: string | null
 }

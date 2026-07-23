@@ -71,6 +71,7 @@ export function ProductFormDialog({
   const [sku, setSku] = useState('')
   const [brand, setBrand] = useState('')
   const [description, setDescription] = useState('')
+  const [purchasePrice, setPurchasePrice] = useState('')
   const [tiers, setTiers] = useState<PriceTierDraft[]>([emptyTier('1')])
   const [minStock, setMinStock] = useState('')
   const [variants, setVariants] = useState<VariantDraft[]>([])
@@ -82,6 +83,9 @@ export function ProductFormDialog({
     setSku(product?.sku ?? '')
     setBrand(product?.brand ?? '')
     setDescription(product?.description ?? '')
+    setPurchasePrice(
+      product?.purchasePriceUsd != null ? String(product.purchasePriceUsd) : '',
+    )
     setMinStock(
       product?.minStock != null && product.minStock !== undefined
         ? String(product.minStock)
@@ -117,6 +121,12 @@ export function ProductFormDialog({
         return
       }
       minStockValue = n
+    }
+
+    const cost = Number(purchasePrice)
+    if (!(cost > 0)) {
+      toast.error('Precio de compra (USD) debe ser > 0')
+      return
     }
 
     const seen = new Set<number>()
@@ -168,6 +178,7 @@ export function ProductFormDialog({
       brand: brand.trim() || null,
       description: description.trim() || null,
       minStock: minStockValue,
+      purchasePriceUsd: Math.round(cost * 100) / 100,
       variants: variants.map((v) => ({
         ...(v.id ? { id: v.id } : {}),
         name: v.name.trim(),
@@ -260,6 +271,23 @@ export function ProductFormDialog({
               onChange={(e) => setMinStock(e.target.value)}
               placeholder="vacío = sin alerta"
             />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="product-cost">Precio de compra (USD)</Label>
+            <Input
+              id="product-cost"
+              type="number"
+              min={0.01}
+              step={0.01}
+              value={purchasePrice}
+              onChange={(e) => setPurchasePrice(e.target.value)}
+              placeholder="Costo unitario"
+              required
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Se congela en cada venta para calcular la ganancia.
+            </p>
           </div>
 
           <VariantInputs variants={variants} onChange={setVariants} />

@@ -1,6 +1,9 @@
 'use client'
 
+import { useState } from 'react'
+import toast from 'react-hot-toast'
 import type { Payment } from '@/types'
+import { useApi } from '@/hooks/useApi'
 import {
   formatBs,
   formatUsd,
@@ -12,10 +15,27 @@ type Props = {
 }
 
 export function PaymentTimeline({ payments }: Props) {
+  const api = useApi()
+  const [loadingId, setLoadingId] = useState<string | null>(null)
+
   if (payments.length === 0) {
     return (
       <p className="text-sm text-gray-500">Sin abonos registrados.</p>
     )
+  }
+
+  async function openReceipt(paymentId: string) {
+    setLoadingId(paymentId)
+    try {
+      const { url } = await api.getPaymentReceiptUrl(paymentId)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'No se pudo abrir el comprobante',
+      )
+    } finally {
+      setLoadingId(null)
+    }
   }
 
   return (
@@ -37,7 +57,7 @@ export function PaymentTimeline({ payments }: Props) {
                   : formatUsd(p.amountUsd)}
               </span>
             </div>
-            <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-gray-500">
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-gray-500">
               <span>
                 {new Date(p.paidAt).toLocaleString('es', {
                   dateStyle: 'short',
@@ -52,6 +72,16 @@ export function PaymentTimeline({ payments }: Props) {
                 </span>
               )}
               {p.note && <span className="italic">{p.note}</span>}
+              {p.hasReceipt && (
+                <button
+                  type="button"
+                  className="font-medium text-violet-600 hover:text-violet-700 disabled:opacity-50"
+                  disabled={loadingId === p.id}
+                  onClick={() => void openReceipt(p.id)}
+                >
+                  {loadingId === p.id ? 'Abriendo…' : 'Ver comprobante'}
+                </button>
+              )}
             </div>
           </li>
         )

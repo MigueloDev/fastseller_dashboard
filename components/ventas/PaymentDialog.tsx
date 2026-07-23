@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import type { ExchangeRates, PaymentMethod, Sale } from '@/types'
 import { useApi } from '@/hooks/useApi'
@@ -23,6 +23,10 @@ import {
   PAYMENT_METHODS,
   rateAgeLabel,
 } from '@/lib/ventas/money'
+import { fileToWebpBase64 } from '@/lib/ventas/receiptImage'
+
+const RECEIPT_MAX_BYTES = 5 * 1024 * 1024
+const RECEIPT_ACCEPT = 'image/jpeg,image/png,image/webp'
 
 type Props = {
   open: boolean
@@ -40,10 +44,13 @@ export function PaymentDialog({
   onSaved,
 }: Props) {
   const api = useApi()
+  const fileRef = useRef<HTMLInputElement>(null)
   const [method, setMethod] = useState<PaymentMethod>('PAGO_MOVIL')
   const [amountInput, setAmountInput] = useState('')
   const [inputMode, setInputMode] = useState<'native' | 'usd'>('native')
   const [note, setNote] = useState('')
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const meta = PAYMENT_METHOD_META[method]
@@ -56,7 +63,19 @@ export function PaymentDialog({
     setAmountInput('')
     setInputMode('native')
     setNote('')
+    setReceiptFile(null)
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+    if (fileRef.current) fileRef.current.value = ''
   }, [open])
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
 
   const computed = useMemo(() => {
     const n = Number(amountInput)
@@ -91,6 +110,31 @@ export function PaymentDialog({
     setAmountInput(String(Math.round(sale.balanceBs * 100) / 100))
   }
 
+  function onPickReceipt(file: File | null) {
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+    if (!file) {
+      setReceiptFile(null)
+      return
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error('Solo JPEG, PNG o WebP')
+      if (fileRef.current) fileRef.current.value = ''
+      setReceiptFile(null)
+      return
+    }
+    if (file.size > RECEIPT_MAX_BYTES) {
+      toast.error('La imagen supera 5 MB')
+      if (fileRef.current) fileRef.current.value = ''
+      setReceiptFile(null)
+      return
+    }
+    setReceiptFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
+  }
+
   async function submit() {
     if (computed.amountNative == null || computed.amountNative <= 0) {
       toast.error('Monto inválido')
@@ -102,10 +146,20 @@ export function PaymentDialog({
     }
     setSaving(true)
     try {
+      let receiptBase64: string | null = null
+      if (receiptFile) {
+        const converted = await fileToWebpBase64(receiptFile)
+        if (converted.bytes > RECEIPT_MAX_BYTES) {
+          toast.error('El WebP convertido supera 5 MB')
+          return
+        }
+        receiptBase64 = converted.base64
+      }
       const updated = await api.addPayment(sale.id, {
         method,
         amount: computed.amountNative,
         note: note.trim() || null,
+        receiptBase64,
       })
       toast.success(
         `Abonado. Faltan ${balanceLabel(updated.balanceUsd, updated.balanceBs, updated.bsRate)}`,
@@ -227,6 +281,47 @@ export function PaymentDialog({
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
+          </div>
+
+          <div>
+            <Label>Comprobante (opcional)</Label>
+            <input
+              ref={fileRef}
+              className="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-violet-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-violet-700 hover:file:bg-violet-100"
+              type="file"
+              accept={RECEIPT_ACCEPT}
+              onChange={(e) => onPickReceipt(e.target.files?.[0] ?? null)}
+            />
+            {receiptFile && (
+              <div className="mt-2 flex items-start gap-3">
+                {previewUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={previewUrl}
+                    alt="Vista previa del comprobante"
+                    className="h-16 w-16 rounded border border-gray-200 object-cover"
+                  />
+                )}
+                <div className="min-w-0 flex-1 text-xs text-gray-500">
+                  <p className="truncate font-medium text-gray-700">
+                    {receiptFile.name}
+                  </p>
+                  <p>Se convertirá a WebP al guardar</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-1 h-7 text-xs"
+                    onClick={() => {
+                      if (fileRef.current) fileRef.current.value = ''
+                      onPickReceipt(null)
+                    }}
+                  >
+                    Quitar
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

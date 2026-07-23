@@ -75,8 +75,9 @@ export default function ProtectedLayout({
                 <NavLink href="/clientes" label="Clientes" />
                 <NavLink href="/reportes" label="Reportes" />
                 <NavLink href="/calculadora" label="Calculadora" />
+                <NavLink href="/whatsapp" label="WhatsApp" />
+                <NavLink href="/conversiones" label="Divisas" />
                 <NavLink href="/scouting" label="Scouting" />
-                <NavLink href="/conversiones" label="Conversiones" disabled />
               </div>
             </div>
             <UserButton afterSignOutUrl="/sign-in" />

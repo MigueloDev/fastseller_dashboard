@@ -4,6 +4,9 @@ import type {
   CreateMovementPayload,
   CreatePaymentPayload,
   CreateSalePayload,
+  CreateCurrencyPurchasePayload,
+  CurrencyPurchasesPage,
+  EligibleSaleForFx,
   Customer,
   ExchangeRates,
   Message,
@@ -20,6 +23,8 @@ import type {
   ProductMovementsReport,
   StockSummaryItem,
   MetricsSummary,
+  WhatsAppState,
+  CurrencyPurchase,
 } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_BOT_URL
@@ -104,6 +109,12 @@ export const api = {
     }),
 
   getRates: (token: string) => request<ExchangeRates>('/rates', token),
+
+  getWhatsAppStatus: (token: string) =>
+    request<WhatsAppState>('/whatsapp/status', token),
+
+  logoutWhatsApp: (token: string) =>
+    request<{ ok: boolean }>('/whatsapp/logout', token, { method: 'POST' }),
 
   getStock: (token: string) => request<StockSummaryItem[]>('/stock', token),
 
@@ -219,6 +230,12 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  getPaymentReceiptUrl: (token: string, paymentId: string) =>
+    request<{ url: string; expiresIn: number }>(
+      `/payments/${paymentId}/receipt-url`,
+      token,
+    ),
+
   voidSale: (token: string, saleId: string) =>
     request<Sale>(`/sales/${saleId}/void`, token, { method: 'POST' }),
 
@@ -302,4 +319,33 @@ export const api = {
       token
     )
   },
+
+  getCurrencyPurchases: (
+    token: string,
+    params: { limit?: number; offset?: number } = {}
+  ) => {
+    const qs = new URLSearchParams()
+    if (params.limit != null) qs.set('limit', String(params.limit))
+    if (params.offset != null) qs.set('offset', String(params.offset))
+    const query = qs.toString()
+    return request<CurrencyPurchasesPage>(
+      `/currency-purchases${query ? `?${query}` : ''}`,
+      token
+    )
+  },
+
+  getEligibleSalesForFx: (token: string, limit = 50) =>
+    request<{ items: EligibleSaleForFx[] }>(
+      `/currency-purchases/eligible-sales?limit=${limit}`,
+      token
+    ),
+
+  createCurrencyPurchase: (
+    token: string,
+    data: CreateCurrencyPurchasePayload
+  ) =>
+    request<CurrencyPurchase>('/currency-purchases', token, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 }

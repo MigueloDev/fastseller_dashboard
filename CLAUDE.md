@@ -18,12 +18,16 @@ Este archivo solo resume convenciones de UI para agentes.
 
 | Ruta | Rol |
 |------|-----|
+| `/` | Home métricas (`components/dashboard/`) |
 | `/inbox`, `/inbox/[jid]` | Inbox WhatsApp (ConversationList solo aquí) |
 | `/productos` | CRUD catálogo (`components/productos/`) |
 | `/ventas` | Ventas + pagos (`components/ventas/`) |
+| `/clientes` | Listado + editar (`components/clientes/`) |
+| `/reportes` | Ventas + kardex + movimientos (`components/reportes/`, `lib/reports/`) |
 | `/calculadora` | Calculadora de importación VE |
+| `/whatsapp` | Conexión del bot vía QR (`components/whatsapp/`) |
 | `/scouting` | Placeholder |
-| `/conversiones` | Placeholder |
+| `/conversiones` | Compra de divisas USDT |
 
 ## Tema
 
@@ -39,4 +43,7 @@ Este archivo solo resume convenciones de UI para agentes.
 - Dominio calculadora namespaced: `lib/calculadora/`, `components/calculadora/`
 - Dominio productos namespaced: `components/productos/`
 - Dominio ventas namespaced: `components/ventas/`, `lib/ventas/`
+- Dominio clientes namespaced: `components/clientes/`
+- Dominio whatsapp namespaced: `components/whatsapp/`
+- Dominio reportes namespaced: `components/reportes/`, `lib/reports/`
 - No tocar inbox/socket/bot al trabajar en calculadora

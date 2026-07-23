@@ -190,6 +190,24 @@ function VentasPageInner() {
                     <p className="font-semibold tabular-nums text-gray-900">
                       {formatUsd(sale.totalUsd)}
                     </p>
+                    {sale.status !== 'ANULADA' &&
+                      (sale.profitUsd != null ? (
+                        <p
+                          className={cn(
+                            'text-xs tabular-nums',
+                            sale.profitUsd >= 0
+                              ? 'text-green-700'
+                              : 'text-red-600',
+                          )}
+                        >
+                          Ganancia {formatUsd(sale.profitUsd)}
+                          {sale.marginPct != null
+                            ? ` (${sale.marginPct.toFixed(0)}%)`
+                            : ''}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400">Sin costo histórico</p>
+                      ))}
                     {sale.status === 'PENDIENTE' && (
                       <p className="text-xs text-amber-800">
                         Falta{' '}

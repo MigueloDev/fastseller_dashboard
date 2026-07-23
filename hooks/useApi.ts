@@ -8,6 +8,7 @@ import type {
   CreateMovementPayload,
   CreatePaymentPayload,
   CreateSalePayload,
+  CreateCurrencyPurchasePayload,
   ProductWritePayload,
 } from '@/types'
 
@@ -55,6 +56,12 @@ export function useApi() {
       withToken(token => api.deleteProduct(token, id)),
 
     getRates: () => withToken(token => api.getRates(token)),
+
+    getWhatsAppStatus: () =>
+      withToken(token => api.getWhatsAppStatus(token)),
+
+    logoutWhatsApp: () =>
+      withToken(token => api.logoutWhatsApp(token)),
 
     getStock: () => withToken(token => api.getStock(token)),
 
@@ -114,6 +121,9 @@ export function useApi() {
     addPayment: (saleId: string, data: CreatePaymentPayload) =>
       withToken(token => api.addPayment(token, saleId, data)),
 
+    getPaymentReceiptUrl: (paymentId: string) =>
+      withToken(token => api.getPaymentReceiptUrl(token, paymentId)),
+
     voidSale: (saleId: string) =>
       withToken(token => api.voidSale(token, saleId)),
 
@@ -148,5 +158,14 @@ export function useApi() {
       from?: string
       to?: string
     }) => withToken(token => api.getProductMovementsReport(token, params)),
+
+    getCurrencyPurchases: (params?: { limit?: number; offset?: number }) =>
+      withToken(token => api.getCurrencyPurchases(token, params)),
+
+    getEligibleSalesForFx: (limit = 50) =>
+      withToken(token => api.getEligibleSalesForFx(token, limit)),
+
+    createCurrencyPurchase: (data: CreateCurrencyPurchasePayload) =>
+      withToken(token => api.createCurrencyPurchase(token, data)),
   }), [withToken])
 }
