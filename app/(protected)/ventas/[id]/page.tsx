@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
-import type { ExchangeRates, Sale } from '@/types'
+import type { ExchangeRateRow, ExchangeRates, Sale } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +23,7 @@ export default function VentaDetailPage() {
   const api = useApi()
   const [sale, setSale] = useState<Sale | null>(null)
   const [rates, setRates] = useState<ExchangeRates | null>(null)
+  const [rateHistory, setRateHistory] = useState<ExchangeRateRow[]>([])
   const [loading, setLoading] = useState(true)
   const [payOpen, setPayOpen] = useState(false)
   const [voiding, setVoiding] = useState(false)
@@ -30,12 +31,14 @@ export default function VentaDetailPage() {
 
   const load = useCallback(async () => {
     try {
-      const [s, r] = await Promise.all([
+      const [s, r, history] = await Promise.all([
         api.getSale(params.id),
         api.getRates().catch(() => null),
+        api.getRatesHistory().catch(() => ({ items: [] as ExchangeRateRow[] })),
       ])
       setSale(s)
       setRates(r)
+      setRateHistory(history.items)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error cargando venta')
     } finally {
@@ -164,21 +167,35 @@ export default function VentaDetailPage() {
 
       <div className="mx-auto max-w-2xl space-y-6 p-4">
         <div className="rounded-lg border border-gray-200 bg-white p-5 text-center">
-          <p className="text-sm text-gray-500">Saldo pendiente</p>
+          <p className="text-sm text-gray-500">
+            {sale.status === 'PAGADA'
+              ? 'Pagada'
+              : sale.status === 'ANULADA'
+                ? 'Anulada'
+                : 'Saldo pendiente'}
+          </p>
           <p className="mt-1 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5 text-3xl font-semibold tabular-nums text-gray-900 sm:text-4xl">
-            <span>{formatUsd(sale.balanceUsd)}</span>
-            {sale.balanceBs != null && (
+            {sale.status === 'PAGADA' ? (
+              <span>{formatUsd(0)}</span>
+            ) : (
               <>
-                <span className="font-normal text-gray-400">·</span>
-                <span>{formatBs(sale.balanceBs)}</span>
+                <span>{formatUsd(sale.balanceUsd)}</span>
+                {sale.balanceBs != null && (
+                  <>
+                    <span className="font-normal text-gray-400">·</span>
+                    <span>{formatBs(sale.balanceBs)}</span>
+                  </>
+                )}
               </>
             )}
           </p>
-          <p className="mt-1 text-xs text-gray-500">
-            {sale.bsRate
-              ? `tasa ${sale.bsRate.rate.toFixed(2)} · ${rateAgeLabel(sale.bsRate.fetchedAt)}`
-              : 'Sin tasa BCV para equivalente en Bs'}
-          </p>
+          {sale.status === 'PENDIENTE' && (
+            <p className="mt-1 text-xs text-gray-500">
+              {sale.bsRate
+                ? `tasa ${sale.bsRate.rate.toFixed(2)} · ${rateAgeLabel(sale.bsRate.fetchedAt)}`
+                : 'Sin tasa BCV para equivalente en Bs'}
+            </p>
+          )}
           <p className="mt-2 text-xs text-gray-400">
             Total venta {formatUsd(sale.totalUsd)}
           </p>
@@ -283,6 +300,7 @@ export default function VentaDetailPage() {
         open={payOpen}
         sale={sale}
         rates={rates}
+        rateHistory={rateHistory}
         onOpenChange={setPayOpen}
         onSaved={setSale}
       />

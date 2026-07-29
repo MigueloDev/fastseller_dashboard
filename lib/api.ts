@@ -9,6 +9,7 @@ import type {
   EligibleSaleForFx,
   Customer,
   ExchangeRates,
+  RatesHistoryResponse,
   Message,
   MovementResult,
   MovementsPage,
@@ -109,6 +110,12 @@ export const api = {
     }),
 
   getRates: (token: string) => request<ExchangeRates>('/rates', token),
+
+  getRatesHistory: (token: string, limit = 24) =>
+    request<RatesHistoryResponse>(
+      `/rates/history?source=BCV&limit=${limit}`,
+      token,
+    ),
 
   getWhatsAppStatus: (token: string) =>
     request<WhatsAppState>('/whatsapp/status', token),
@@ -348,4 +355,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  getCurrencyPurchaseReceiptUrl: (token: string, purchaseId: string) =>
+    request<{ url: string; expiresIn: number }>(
+      `/currency-purchases/${purchaseId}/receipt-url`,
+      token,
+    ),
 }

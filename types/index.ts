@@ -153,6 +153,18 @@ export interface ExchangeRates {
   gap: number | null
 }
 
+/** Fila histórica de exchange_rates (GET /rates/history). */
+export interface ExchangeRateRow {
+  id: string
+  source: 'BCV' | 'BINANCE'
+  rate: number
+  fetchedAt: string
+}
+
+export interface RatesHistoryResponse {
+  items: ExchangeRateRow[]
+}
+
 export interface Message {
   id: string
   conversationId: string
@@ -342,6 +354,8 @@ export interface CreatePaymentPayload {
   note?: string | null
   /** data URL or raw base64 WebP produced by the client */
   receiptBase64?: string | null
+  /** Fila BCV histórica elegida; si falta, el backend usa la tasa live. */
+  rateId?: string | null
 }
 
 export interface ReceivablesResponse {
@@ -511,9 +525,29 @@ export interface MetricsSummary {
   lowStock: MetricsLowStock[]
 }
 
+export interface CurrencyPurchaseAllocation {
+  id: string
+  purchaseId: string
+  saleId: string
+  bsSpent: number
+  usdCollected: number
+  usdtReceived: number
+  costUsd: number | null
+  profitUsd: number | null
+  sale?: {
+    id: string
+    status: SaleStatus
+    totalUsd: number
+    priceRef: PriceRef
+    createdAt: string
+    customer: { id: string; name: string; cedula: string | null } | null
+  } | null
+}
+
 export interface CurrencyPurchase {
   id: string
-  saleId: string
+  /** Primera venta (compat); preferir allocations */
+  saleId: string | null
   binanceRate: number
   bsSpent: number
   usdtReceived: number
@@ -523,8 +557,10 @@ export interface CurrencyPurchase {
   expectedUsdt: number | null
   note: string | null
   agentName: string | null
+  hasReceipt: boolean
   purchasedAt: string
   createdAt: string
+  allocations?: CurrencyPurchaseAllocation[]
   sale?: {
     id: string
     status: SaleStatus
@@ -558,15 +594,22 @@ export interface EligibleSaleForFx {
   totalUsd: number
   createdAt: string
   customer: { id: string; name: string; cedula: string | null } | null
+  /** Bs pendientes de convertir en esta compra */
   bsSpent: number
+  bsConverted?: number
+  /** USD aún no atribuidos a compras previas */
   usdCollected: number
+  usdAttributed?: number
+  usdtConverted?: number
   costUsd: number | null
   paymentsCount: number
+  purchasesCount?: number
 }
 
 export interface CreateCurrencyPurchasePayload {
-  saleId: string
+  saleIds: string[]
   binanceRate: number
   usdtReceived: number
   note?: string | null
+  receiptBase64?: string | null
 }

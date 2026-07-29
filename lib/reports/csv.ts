@@ -1,9 +1,12 @@
 export type CsvValue = string | number | null | undefined
 
-/** Escapa un campo para CSV (comillas, comas, saltos de línea). */
+/** Escapa un campo para CSV (comillas, comas, saltos de línea) + anti fórmula-injection. */
 function escapeField(value: CsvValue): string {
   if (value == null) return ''
-  const s = String(value)
+  let s = String(value)
+  // Anti CSV/formula injection: un campo que empieza por = + - @ (o tab/CR) puede
+  // ejecutarse como fórmula en Excel/Sheets. Prefijar con comilla simple lo neutraliza.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
   if (/[",\n\r;]/.test(s)) return `"${s.replace(/"/g, '""')}"`
   return s
 }

@@ -13,7 +13,7 @@ Al cambiar rutas, auth, contrato inbox o env, actualizar este archivo **y** el o
 |------|--------|
 | Stack | Next.js 15 App Router + React 19 + TypeScript |
 | Producto | Dashboard VictoriaLeads (inbox + productos/inventario + ventas + reportes + calculadora) |
-| Features | `/` (home métricas), `/inbox`, `/inbox/[jid]`, `/productos`, `/ventas` (+ `/nueva`, `/[id]/editar`), `/clientes`, `/reportes` (+ `/ventas`, `/kardex`, `/movimientos`), `/conversiones` (compra de divisas), `/calculadora` |
+| Features | `/` (home métricas), `/inbox`, `/inbox/[jid]`, `/productos`, `/ventas` (+ `/nueva`, `/[id]/editar`), `/clientes`, `/reportes` (+ `/ventas`, `/kardex`, `/movimientos`), `/conversiones` (compra USDT multi-venta), `/calculadora` |
 | Placeholders | `/scouting` |
 
 ---
@@ -91,7 +91,7 @@ Dark mode: tokens existen; **no hay** toggle. Light only.
 | `/calculadora` | `app/(protected)/calculadora/page.tsx` | ImportCalc VE (`GET /rates`) |
 | `/whatsapp` | `app/(protected)/whatsapp/page.tsx` | Conexión del bot vía QR (`GET /whatsapp/status`, `POST /whatsapp/logout`, socket `bot_status`) |
 | `/scouting` | `app/(protected)/scouting/page.tsx` | Stub |
-| `/conversiones` | `app/(protected)/conversiones/page.tsx` | Compra de divisas (USDT desde Bs de ventas PAGADA) |
+| `/conversiones` | `app/(protected)/conversiones/page.tsx` | Compra de divisas (1 trade ↔ N ventas con Bs pendientes) |
 
 ### Env (ver `.env.example`)
 
@@ -183,7 +183,8 @@ Una venta sin entregar **reserva** stock en vez de descontarlo: `quantity` es el
 | `components/ventas/PriceModeSelector.tsx` | REF_USD / REF_BS |
 | `components/ventas/SaleLineItem.tsx` | Línea producto/variante/qty/precio editable |
 | `components/ventas/PaymentDialog.tsx` | Registrar abono (+ comprobante opcional → WebP) |
-| `components/ventas/PaymentTimeline.tsx` | Historial pagos (+ “Ver comprobante”) |
+| `components/ventas/PaymentTimeline.tsx` | Historial pagos (+ “Ver comprobante” en modal) |
+| `components/ventas/ReceiptViewerDialog.tsx` | Modal de imagen firmada (pagos + compras USDT) |
 | `components/ventas/DeliveryBadge.tsx` | Badge Por entregar / Entregada (lista + detalle) |
 | `components/ventas/ReceivablesCard.tsx` | CxC en listado |
 | `lib/ve/cedula.ts` / `lib/ve/phone.ts` | Normalización VE |
@@ -215,11 +216,11 @@ El rango manual manda sobre el tab de período; limpiarlo vuelve al tab.
 
 | Path | Rol |
 |------|-----|
-| `app/(protected)/conversiones/page.tsx` | Resumen + registrar compra USDT + historial |
-| `lib/api.ts` / `hooks/useApi.ts` | `getCurrencyPurchases`, `getEligibleSalesForFx`, `createCurrencyPurchase` |
-| `types/index.ts` | `CurrencyPurchase`, `EligibleSaleForFx`, … |
+| `app/(protected)/conversiones/page.tsx` | Resumen + multi-select ventas + registrar compra USDT (+ captura) + historial |
+| `lib/api.ts` / `hooks/useApi.ts` | `getCurrencyPurchases`, `getEligibleSalesForFx`, `createCurrencyPurchase` (`saleIds[]`), `getCurrencyPurchaseReceiptUrl` |
+| `types/index.ts` | `CurrencyPurchase` (`allocations[]`, `hasReceipt`), `CurrencyPurchaseAllocation`, `EligibleSaleForFx`, … |
 
-Ganancia realizada: `USDT recibidos + pagos USD − costo snapshot`. Una venta PAGADA con Bs solo puede usarse una vez.
+Ganancia realizada: `Σ USDT + Σ USD atribuidos − costo snapshot`, estampada en la allocation de cierre (venta `PAGADA` sin Bs pendientes) o al liquidar si los Bs ya estaban convertidos. Una compra puede agrupar N ventas; varias compras en el tiempo por venta siguen OK (cada una consume el `bsAvailable` actual). Captura opcional → `compras_usdt/{purchaseId}/`; se ve en modal.
 
 ### Módulo calculadora
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import type { ExchangeRates, Product, Sale } from '@/types'
+import type { ExchangeRateRow, ExchangeRates, Product, Sale } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { SaleForm } from '@/components/ventas/SaleForm'
 
@@ -13,16 +13,18 @@ export default function EditarVentaPage() {
   const api = useApi()
   const [products, setProducts] = useState<Product[]>([])
   const [rates, setRates] = useState<ExchangeRates | null>(null)
+  const [rateHistory, setRateHistory] = useState<ExchangeRateRow[]>([])
   const [sale, setSale] = useState<Sale | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     void (async () => {
       try {
-        const [s, prods, nextRates] = await Promise.all([
+        const [s, prods, nextRates, history] = await Promise.all([
           api.getSale(params.id),
           api.getProducts(false),
           api.getRates().catch(() => null),
+          api.getRatesHistory().catch(() => ({ items: [] as ExchangeRateRow[] })),
         ])
         if (s.status !== 'PENDIENTE' || s.payments.length > 0) {
           toast.error('Solo se pueden editar ventas pendientes sin pagos')
@@ -32,6 +34,7 @@ export default function EditarVentaPage() {
         setSale(s)
         setProducts(prods)
         setRates(nextRates)
+        setRateHistory(history.items)
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Error cargando datos')
       } finally {
@@ -56,7 +59,12 @@ export default function EditarVentaPage() {
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
-      <SaleForm products={products} rates={rates} initialSale={sale} />
+      <SaleForm
+        products={products}
+        rates={rates}
+        rateHistory={rateHistory}
+        initialSale={sale}
+      />
     </div>
   )
 }

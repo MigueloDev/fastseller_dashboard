@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import type { ExchangeRates, PaymentMethod, Sale } from '@/types'
+import type { ExchangeRateRow, ExchangeRates, PaymentMethod, Sale } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { BcvRatePicker } from '@/components/ventas/BcvRatePicker'
 import {
   balanceLabel,
   formatBs,
@@ -32,6 +33,7 @@ type Props = {
   open: boolean
   sale: Sale
   rates: ExchangeRates | null
+  rateHistory: ExchangeRateRow[]
   onOpenChange: (open: boolean) => void
   onSaved: (sale: Sale) => void
 }
@@ -40,6 +42,7 @@ export function PaymentDialog({
   open,
   sale,
   rates,
+  rateHistory,
   onOpenChange,
   onSaved,
 }: Props) {
@@ -51,11 +54,13 @@ export function PaymentDialog({
   const [note, setNote] = useState('')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [rateId, setRateId] = useState(rateHistory[0]?.id ?? '')
   const [saving, setSaving] = useState(false)
 
   const meta = PAYMENT_METHOD_META[method]
-  const bcv = rates?.bcv ?? null
-  const rate = bcv?.rate ?? null
+  const pickedRate = rateHistory.find((r) => r.id === rateId) ?? null
+  const rate = pickedRate?.rate ?? rates?.bcv?.rate ?? null
+  const rateFetchedAt = pickedRate?.fetchedAt ?? rates?.bcv?.fetchedAt
 
   useEffect(() => {
     if (!open) return
@@ -63,13 +68,14 @@ export function PaymentDialog({
     setAmountInput('')
     setInputMode('native')
     setNote('')
+    setRateId(rateHistory[0]?.id ?? '')
     setReceiptFile(null)
     setPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev)
       return null
     })
     if (fileRef.current) fileRef.current.value = ''
-  }, [open])
+  }, [open, rateHistory])
 
   useEffect(() => {
     return () => {
@@ -101,6 +107,10 @@ export function PaymentDialog({
     const useUsd = meta.currency === 'USD' || inputMode === 'usd'
     if (useUsd) {
       setAmountInput(String(Math.round(sale.balanceUsd * 100) / 100))
+      return
+    }
+    if (rate && rate > 0) {
+      setAmountInput(String(Math.round(sale.balanceUsd * rate * 100) / 100))
       return
     }
     if (sale.balanceBs == null) {
@@ -160,9 +170,12 @@ export function PaymentDialog({
         amount: computed.amountNative,
         note: note.trim() || null,
         receiptBase64,
+        rateId: rateId || null,
       })
       toast.success(
-        `Abonado. Faltan ${balanceLabel(updated.balanceUsd, updated.balanceBs, updated.bsRate)}`,
+        updated.status === 'PAGADA'
+          ? 'Venta pagada'
+          : `Abonado. Faltan ${balanceLabel(updated.balanceUsd, updated.balanceBs, updated.bsRate)}`,
       )
       onSaved(updated)
       onOpenChange(false)
@@ -193,7 +206,6 @@ export function PaymentDialog({
               onChange={(e) => {
                 const next = e.target.value as PaymentMethod
                 setMethod(next)
-                // BS methods always start in bolívares; USD has no toggle
                 setInputMode('native')
                 setAmountInput('')
               }}
@@ -206,6 +218,17 @@ export function PaymentDialog({
               ))}
             </select>
           </div>
+
+          {rateHistory.length > 0 && (
+            <div>
+              <Label>Tasa BCV</Label>
+              <BcvRatePicker
+                options={rateHistory}
+                value={rateId}
+                onChange={setRateId}
+              />
+            </div>
+          )}
 
           {meta.currency === 'BS' && (
             <div className="flex gap-2">
@@ -259,7 +282,7 @@ export function PaymentDialog({
             {meta.currency === 'BS' && (
               <p className="mt-1 text-xs text-gray-500">
                 {rate
-                  ? `tasa ${rate.toFixed(2)} · ${rateAgeLabel(bcv?.fetchedAt)}`
+                  ? `tasa ${rate.toFixed(2)} · ${rateAgeLabel(rateFetchedAt)}`
                   : 'Sin tasa BCV'}
                 {computed.amountNative != null &&
                   computed.amountUsd != null && (

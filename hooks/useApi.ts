@@ -57,6 +57,9 @@ export function useApi() {
 
     getRates: () => withToken(token => api.getRates(token)),
 
+    getRatesHistory: (limit = 24) =>
+      withToken(token => api.getRatesHistory(token, limit)),
+
     getWhatsAppStatus: () =>
       withToken(token => api.getWhatsAppStatus(token)),
 
@@ -167,5 +170,8 @@ export function useApi() {
 
     createCurrencyPurchase: (data: CreateCurrencyPurchasePayload) =>
       withToken(token => api.createCurrencyPurchase(token, data)),
+
+    getCurrencyPurchaseReceiptUrl: (purchaseId: string) =>
+      withToken(token => api.getCurrencyPurchaseReceiptUrl(token, purchaseId)),
   }), [withToken])
 }

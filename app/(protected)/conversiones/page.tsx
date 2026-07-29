@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { ArrowLeftRight, Plus } from 'lucide-react'
 import type {
@@ -14,8 +14,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { ReceiptViewerDialog } from '@/components/ventas/ReceiptViewerDialog'
 import { formatUsd } from '@/lib/ventas/money'
+import { fileToWebpBase64 } from '@/lib/ventas/receiptImage'
 import { cn } from '@/lib/utils'
+
+const RECEIPT_MAX_BYTES = 5 * 1024 * 1024
+const RECEIPT_ACCEPT = 'image/jpeg,image/png,image/webp'
 
 function formatBs(n: number) {
   return `Bs ${n.toLocaleString('es-VE', { maximumFractionDigits: 2 })}`
@@ -28,6 +33,19 @@ function formatUsdt(n: number) {
 function expectedUsdt(bsSpent: number, rate: number) {
   if (!(bsSpent > 0) || !(rate > 0)) return null
   return Math.round((bsSpent / rate) * 1e6) / 1e6
+}
+
+function purchaseTitle(p: CurrencyPurchase) {
+  const allocs = p.allocations ?? []
+  const names = allocs
+    .map((a) => a.sale?.customer?.name)
+    .filter((n): n is string => Boolean(n))
+  if (names.length > 1) {
+    const shown = names.slice(0, 2).join(', ')
+    const more = names.length > 2 ? ` +${names.length - 2}` : ''
+    return `${names.length} ventas · ${shown}${more}`
+  }
+  return names[0] ?? p.sale?.customer?.name ?? 'Cliente'
 }
 
 function SummaryCards({
@@ -83,17 +101,21 @@ function SummaryCards({
 
 export default function ConversionesPage() {
   const api = useApi()
+  const fileRef = useRef<HTMLInputElement>(null)
   const [items, setItems] = useState<CurrencyPurchase[]>([])
   const [summary, setSummary] = useState<CurrencyPurchaseSummary | null>(null)
   const [eligible, setEligible] = useState<EligibleSaleForFx[]>([])
   const [rates, setRates] = useState<ExchangeRates | null>(null)
   const [loading, setLoading] = useState(true)
   const [formOpen, setFormOpen] = useState(false)
-  const [saleId, setSaleId] = useState('')
+  const [saleIds, setSaleIds] = useState<string[]>([])
   const [binanceRate, setBinanceRate] = useState('')
   const [usdtReceived, setUsdtReceived] = useState('')
   const [note, setNote] = useState('')
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [viewerId, setViewerId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -126,29 +148,100 @@ export default function ConversionesPage() {
     }
   }, [formOpen, rates, binanceRate])
 
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
+
   const selected = useMemo(
-    () => eligible.find((s) => s.id === saleId) ?? null,
-    [eligible, saleId],
+    () => eligible.filter((s) => saleIds.includes(s.id)),
+    [eligible, saleIds],
   )
 
   const rateNum = Number(binanceRate)
   const usdtNum = Number(usdtReceived)
-  const previewExpected = selected
-    ? expectedUsdt(selected.bsSpent, rateNum)
+  const bsTotal = selected.reduce((a, s) => a + s.bsSpent, 0)
+  const usdTotal = selected.reduce((a, s) => a + s.usdCollected, 0)
+  const previewExpected = selected.length
+    ? expectedUsdt(bsTotal, rateNum)
     : null
+  // profit solo si todas las seleccionadas cierran (PAGADA + costo)
   const previewProfit =
-    selected &&
-    selected.costUsd != null &&
+    selected.length > 0 &&
+    selected.every((s) => s.status === 'PAGADA' && s.costUsd != null) &&
     Number.isFinite(usdtNum) &&
     usdtNum > 0
-      ? Math.round((usdtNum + selected.usdCollected - selected.costUsd) * 100) /
-        100
+      ? Math.round(
+          (usdtNum +
+            selected.reduce(
+              (a, s) =>
+                a +
+                (s.usdtConverted ?? 0) +
+                (s.usdAttributed ?? 0) +
+                s.usdCollected,
+              0,
+            ) -
+            selected.reduce((a, s) => a + (s.costUsd ?? 0), 0)) *
+            100,
+        ) / 100
       : null
+
+  function toggleSale(id: string) {
+    setSaleIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    )
+  }
+
+  const loadReceiptUrl = useCallback(async () => {
+    if (!viewerId) throw new Error('Sin compra seleccionada')
+    const { url } = await api.getCurrencyPurchaseReceiptUrl(viewerId)
+    return url
+  }, [api, viewerId])
+
+  function resetReceipt() {
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+    setReceiptFile(null)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  function onPickReceipt(file: File | null) {
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+    if (!file) {
+      setReceiptFile(null)
+      return
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error('Solo JPEG, PNG o WebP')
+      if (fileRef.current) fileRef.current.value = ''
+      setReceiptFile(null)
+      return
+    }
+    if (file.size > RECEIPT_MAX_BYTES) {
+      toast.error('La imagen supera 5 MB')
+      if (fileRef.current) fileRef.current.value = ''
+      setReceiptFile(null)
+      return
+    }
+    setReceiptFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
+  }
+
+  function closeForm() {
+    setFormOpen(false)
+    resetReceipt()
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!saleId) {
-      toast.error('Seleccione una venta')
+    if (!saleIds.length) {
+      toast.error('Seleccione al menos una venta')
       return
     }
     if (!(rateNum > 0)) {
@@ -162,15 +255,25 @@ export default function ConversionesPage() {
 
     setSaving(true)
     try {
+      let receiptBase64: string | null = null
+      if (receiptFile) {
+        const converted = await fileToWebpBase64(receiptFile)
+        if (converted.bytes > RECEIPT_MAX_BYTES) {
+          toast.error('El WebP convertido supera 5 MB')
+          return
+        }
+        receiptBase64 = converted.base64
+      }
       await api.createCurrencyPurchase({
-        saleId,
+        saleIds,
         binanceRate: Math.round(rateNum * 1e4) / 1e4,
         usdtReceived: Math.round(usdtNum * 1e6) / 1e6,
         note: note.trim() || null,
+        receiptBase64,
       })
       toast.success('Compra de divisas registrada')
-      setFormOpen(false)
-      setSaleId('')
+      closeForm()
+      setSaleIds([])
       setUsdtReceived('')
       setNote('')
       setBinanceRate(rates?.binance?.rate ? String(rates.binance.rate) : '')
@@ -194,7 +297,13 @@ export default function ConversionesPage() {
         <Button
           type="button"
           size="sm"
-          onClick={() => setFormOpen((v) => !v)}
+          onClick={() => {
+            if (formOpen) {
+              closeForm()
+            } else {
+              setFormOpen(true)
+            }
+          }}
           disabled={eligible.length === 0 && !formOpen}
         >
           <Plus className="h-4 w-4" />
@@ -211,61 +320,83 @@ export default function ConversionesPage() {
             className="space-y-4 rounded-lg border border-gray-200 bg-white p-4"
           >
             <div className="space-y-1">
-              <Label htmlFor="fx-sale">Venta (Bs cobrados)</Label>
+              <Label>Ventas (Bs pendientes de convertir)</Label>
               {eligible.length === 0 ? (
                 <p className="text-sm text-gray-500">
-                  No hay ventas PAGADA con pagos en Bs pendientes de convertir.
+                  No hay ventas con pagos en Bs pendientes de convertir.
                 </p>
               ) : (
-                <select
-                  id="fx-sale"
-                  className="h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
-                  value={saleId}
-                  onChange={(e) => setSaleId(e.target.value)}
-                  required
-                >
-                  <option value="">Seleccionar…</option>
-                  {eligible.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.customer?.name ?? 'Cliente'} · {formatUsd(s.totalUsd)} ·{' '}
-                      {formatBs(s.bsSpent)}
-                      {s.usdCollected > 0
-                        ? ` + ${formatUsd(s.usdCollected)}`
-                        : ''}{' '}
-                      ·{' '}
-                      {new Date(s.createdAt).toLocaleDateString('es', {
-                        dateStyle: 'short',
-                      })}
-                    </option>
-                  ))}
-                </select>
+                <ul className="max-h-56 space-y-1 overflow-auto rounded-md border border-gray-200 p-2">
+                  {eligible.map((s) => {
+                    const checked = saleIds.includes(s.id)
+                    return (
+                      <li key={s.id}>
+                        <label
+                          className={cn(
+                            'flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-gray-50',
+                            checked && 'bg-violet-50',
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={checked}
+                            onChange={() => toggleSale(s.id)}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="font-medium text-gray-900">
+                              {s.customer?.name ?? 'Cliente'}
+                            </span>
+                            <span className="block text-xs text-gray-500">
+                              {s.status} · {formatUsd(s.totalUsd)} ·{' '}
+                              {formatBs(s.bsSpent)}
+                              {s.bsConverted && s.bsConverted > 0
+                                ? ` (ya ${formatBs(s.bsConverted)})`
+                                : ''}
+                              {s.usdCollected > 0
+                                ? ` + ${formatUsd(s.usdCollected)}`
+                                : ''}{' '}
+                              ·{' '}
+                              {new Date(s.createdAt).toLocaleDateString('es', {
+                                dateStyle: 'short',
+                              })}
+                            </span>
+                          </span>
+                        </label>
+                      </li>
+                    )
+                  })}
+                </ul>
               )}
             </div>
 
-            {selected && (
+            {selected.length > 0 && (
               <div className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                <p>
+                  Seleccionadas:{' '}
+                  <span className="font-medium text-gray-900">
+                    {selected.length}
+                  </span>
+                </p>
                 <p>
                   Bs a convertir:{' '}
                   <span className="font-medium text-gray-900">
-                    {formatBs(selected.bsSpent)}
+                    {formatBs(bsTotal)}
                   </span>
                 </p>
-                {selected.usdCollected > 0 && (
+                {usdTotal > 0 && (
                   <p>
-                    Pagos directos USD:{' '}
+                    Pagos USD por atribuir:{' '}
                     <span className="font-medium text-gray-900">
-                      {formatUsd(selected.usdCollected)}
+                      {formatUsd(usdTotal)}
                     </span>
                   </p>
                 )}
-                <p>
-                  Costo productos:{' '}
-                  <span className="font-medium text-gray-900">
-                    {selected.costUsd != null
-                      ? formatUsd(selected.costUsd)
-                      : 'sin snapshot'}
-                  </span>
-                </p>
+                {selected.some((s) => s.status !== 'PAGADA') && (
+                  <p className="text-gray-500">
+                    Hay ventas pendientes: la ganancia se cierra al liquidarlas.
+                  </p>
+                )}
               </div>
             )}
 
@@ -345,11 +476,50 @@ export default function ConversionesPage() {
               />
             </div>
 
+            <div className="space-y-1">
+              <Label htmlFor="fx-receipt">Captura del intercambio (opcional)</Label>
+              <input
+                id="fx-receipt"
+                ref={fileRef}
+                className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-violet-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-violet-700 hover:file:bg-violet-100"
+                type="file"
+                accept={RECEIPT_ACCEPT}
+                onChange={(e) => onPickReceipt(e.target.files?.[0] ?? null)}
+              />
+              {receiptFile && (
+                <div className="mt-2 flex items-start gap-3">
+                  {previewUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={previewUrl}
+                      alt="Vista previa del intercambio"
+                      className="h-16 w-16 rounded border border-gray-200 object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1 text-xs text-gray-500">
+                    <p className="truncate font-medium text-gray-700">
+                      {receiptFile.name}
+                    </p>
+                    <p>Se convertirá a WebP al guardar</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="mt-1 h-7 text-xs"
+                      onClick={resetReceipt}
+                    >
+                      Quitar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setFormOpen(false)}
+                onClick={closeForm}
                 disabled={saving}
               >
                 Cancelar
@@ -376,7 +546,7 @@ export default function ConversionesPage() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900">
-                      {p.sale?.customer?.name ?? 'Cliente'}
+                      {purchaseTitle(p)}
                     </p>
                     <p className="text-xs text-gray-500">
                       {new Date(p.purchasedAt).toLocaleString('es', {
@@ -386,7 +556,19 @@ export default function ConversionesPage() {
                       {p.agentName ? ` · ${p.agentName}` : ''}
                       {' · '}
                       tasa {p.binanceRate}
+                      {(p.allocations?.length ?? 0) > 1
+                        ? ` · ${p.allocations!.length} ventas`
+                        : ''}
                     </p>
+                    {p.hasReceipt && (
+                      <button
+                        type="button"
+                        className="mt-1 text-xs font-medium text-violet-600 hover:text-violet-700"
+                        onClick={() => setViewerId(p.id)}
+                      >
+                        Ver comprobante
+                      </button>
+                    )}
                   </div>
                   <div className="text-right text-sm">
                     <p className="tabular-nums text-gray-900">
@@ -414,6 +596,15 @@ export default function ConversionesPage() {
           </ul>
         )}
       </div>
+
+      <ReceiptViewerDialog
+        open={viewerId != null}
+        onOpenChange={(open) => {
+          if (!open) setViewerId(null)
+        }}
+        title="Comprobante de intercambio"
+        loadUrl={loadReceiptUrl}
+      />
     </div>
   )
 }

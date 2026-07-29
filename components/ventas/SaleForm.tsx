@@ -4,11 +4,19 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Plus } from 'lucide-react'
-import type { Customer, ExchangeRates, PriceRef, Product, Sale } from '@/types'
+import type {
+  Customer,
+  ExchangeRateRow,
+  ExchangeRates,
+  PriceRef,
+  Product,
+  Sale,
+} from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { BcvRatePicker } from '@/components/ventas/BcvRatePicker'
 import { PriceModeSelector } from '@/components/ventas/PriceModeSelector'
 import { SaleLineItem, type LineDraft } from '@/components/ventas/SaleLineItem'
 import { CustomerPicker } from '@/components/ventas/CustomerPicker'
@@ -65,10 +73,11 @@ function effectiveUnit(
 type Props = {
   products: Product[]
   rates: ExchangeRates | null
+  rateHistory: ExchangeRateRow[]
   initialSale?: Sale
 }
 
-export function SaleForm({ products, rates, initialSale }: Props) {
+export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
   const api = useApi()
   const router = useRouter()
   const isEdit = Boolean(initialSale)
@@ -87,7 +96,13 @@ export function SaleForm({ products, rates, initialSale }: Props) {
     initialSale ? linesFromSale(initialSale) : [emptyLine()],
   )
   const [note, setNote] = useState(initialSale?.note ?? '')
+  const [rateId, setRateId] = useState(rateHistory[0]?.id ?? '')
   const [saving, setSaving] = useState(false)
+
+  // Tasa solo para el equivalente Bs en pantalla; la venta se guarda en USD.
+  const pickedRate = rateHistory.find((r) => r.id === rateId) ?? null
+  const quoteRate = pickedRate?.rate ?? rates?.bcv?.rate ?? null
+  const quoteFetchedAt = pickedRate?.fetchedAt ?? rates?.bcv?.fetchedAt
 
   const productQtys = useMemo(
     () =>
@@ -121,11 +136,12 @@ export function SaleForm({ products, rates, initialSale }: Props) {
       if (unitBs != null) totalBs += unitBs * qty
       if (unitSelected != null) selected += unitSelected * qty
     }
-    const rate = rates?.bcv?.rate
     const equivBs =
-      rate && rate > 0 ? Math.round(selected * rate * 100) / 100 : null
+      quoteRate && quoteRate > 0
+        ? Math.round(selected * quoteRate * 100) / 100
+        : null
     return { totalUsd, totalBs, selected, equivBs }
-  }, [lines, activeProducts, priceRef, rates, productQtys])
+  }, [lines, activeProducts, priceRef, quoteRate, productQtys])
 
   async function submit() {
     setSaving(true)
@@ -182,13 +198,14 @@ export function SaleForm({ products, rates, initialSale }: Props) {
     }
   }
 
-  const rateLabel = rates?.bcv
-    ? `tasa ${rates.bcv.rate.toFixed(2)} · ${rateAgeLabel(rates.bcv.fetchedAt)}`
+  const rateLabel = quoteRate
+    ? `tasa ${quoteRate.toFixed(2)} · ${rateAgeLabel(quoteFetchedAt)}`
     : null
 
-  const bcvRate = rates?.bcv?.rate
   const toBs = (usd: number) =>
-    bcvRate && bcvRate > 0 ? Math.round(usd * bcvRate * 100) / 100 : null
+    quoteRate && quoteRate > 0
+      ? Math.round(usd * quoteRate * 100) / 100
+      : null
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 pb-24">
@@ -202,6 +219,17 @@ export function SaleForm({ products, rates, initialSale }: Props) {
         <Label>Cliente</Label>
         <CustomerPicker value={customer} onChange={setCustomer} />
       </section>
+
+      {rateHistory.length > 0 && (
+        <section className="rounded-lg border border-gray-200 bg-white p-4">
+          <Label>Tasa BCV (equivalente en Bs)</Label>
+          <BcvRatePicker
+            options={rateHistory}
+            value={rateId}
+            onChange={setRateId}
+          />
+        </section>
+      )}
 
       <PriceModeSelector
         priceRef={priceRef}
