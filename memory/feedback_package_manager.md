@@ -1,11 +1,11 @@
 ---
 name: Package manager preference
-description: This project uses npm, not pnpm or yarn
+description: This project uses pnpm, not npm or yarn
 type: feedback
 ---
 
-Use `npm install` (not `pnpm add` or `yarn add`) for this project.
+Use `pnpm install` / `pnpm add` (not `npm install` or `yarn add`) for this project.
 
-**Why:** The project runs with npm locally.
+**Why:** The project runs with pnpm locally.
 
-**How to apply:** Whenever installing dependencies in fastseller_dashboard, use `npm install <pkg>`.
+**How to apply:** Whenever installing dependencies in fastseller_dashboard, use `pnpm add <pkg>` or `pnpm install`.

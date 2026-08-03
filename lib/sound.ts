@@ -1,8 +1,7 @@
 export function playNotification() {
   if (typeof window === 'undefined') return
   try {
-    const ctx = new (window.AudioContext ||
-      (window as any).webkitAudioContext)()
+    const ctx = new AudioContext()
 
     function playTone(
       freq: number,

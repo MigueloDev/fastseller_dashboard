@@ -9,7 +9,6 @@ import { formatPhone, formatTime } from '@/lib/format'
 import toast from 'react-hot-toast'
 import type {
   Conversation,
-  ConversationStatus,
   IntentDetectedEvent,
   ConversationUpdatedEvent,
   ConversationStatusChangedEvent,
@@ -91,7 +90,7 @@ export function ConversationList() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900">Intención de compra</p>
             <p className="text-xs text-gray-500 truncate mt-0.5">{formatPhone(event.jid)}</p>
-            <p className="text-xs text-gray-400 mt-0.5 truncate">"{event.text}"</p>
+            <p className="text-xs text-gray-400 mt-0.5 truncate">&ldquo;{event.text}&rdquo;</p>
           </div>
           <button
             onClick={() => {
@@ -124,7 +123,7 @@ export function ConversationList() {
       socket.off('intent_detected', handleIntentDetected)
       socket.off('conversation_status_changed', handleStatusChanged)
     }
-  }, [api, socket])
+  }, [api, socket, router])
 
   function handleClick(jid: string) {
     setAlerts(prev => {
