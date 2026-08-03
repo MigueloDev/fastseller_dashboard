@@ -62,6 +62,18 @@ export function PaymentDialog({
   const rate = pickedRate?.rate ?? rates?.bcv?.rate ?? null
   const rateFetchedAt = pickedRate?.fetchedAt ?? rates?.bcv?.fetchedAt
 
+  // El cierre de la venta es en USD (Σ amountUsd de cada pago).
+  // El Bs pendiente del diálogo DEBE usar la tasa seleccionada, no sale.balanceBs
+  // (ese va a tasa live y hace que un abono "por el total en Bs" quede corto/largo).
+  const balanceBsAtRate =
+    rate && rate > 0
+      ? Math.round(sale.balanceUsd * rate * 100) / 100
+      : null
+  const selectedBsRate =
+    rate && rate > 0
+      ? { rate, fetchedAt: rateFetchedAt ?? new Date().toISOString() }
+      : null
+
   useEffect(() => {
     if (!open) return
     setMethod('PAGO_MOVIL')
@@ -109,15 +121,11 @@ export function PaymentDialog({
       setAmountInput(String(Math.round(sale.balanceUsd * 100) / 100))
       return
     }
-    if (rate && rate > 0) {
-      setAmountInput(String(Math.round(sale.balanceUsd * rate * 100) / 100))
-      return
-    }
-    if (sale.balanceBs == null) {
+    if (balanceBsAtRate == null) {
       toast.error('Sin tasa BCV')
       return
     }
-    setAmountInput(String(Math.round(sale.balanceBs * 100) / 100))
+    setAmountInput(String(balanceBsAtRate))
   }
 
   function onPickReceipt(file: File | null) {
@@ -172,10 +180,16 @@ export function PaymentDialog({
         receiptBase64,
         rateId: rateId || null,
       })
+      // Toast con la misma tasa del abono (no la live de updated.balanceBs).
+      const remBs =
+        rate && rate > 0
+          ? Math.round(updated.balanceUsd * rate * 100) / 100
+          : updated.balanceBs
+      const remRate = selectedBsRate ?? updated.bsRate
       toast.success(
         updated.status === 'PAGADA'
           ? 'Venta pagada'
-          : `Abonado. Faltan ${balanceLabel(updated.balanceUsd, updated.balanceBs, updated.bsRate)}`,
+          : `Abonado. Faltan ${balanceLabel(updated.balanceUsd, remBs, remRate)}`,
       )
       onSaved(updated)
       onOpenChange(false)
@@ -193,7 +207,10 @@ export function PaymentDialog({
           <DialogTitle>Registrar pago</DialogTitle>
           <DialogDescription>
             Saldo:{' '}
-            {balanceLabel(sale.balanceUsd, sale.balanceBs, sale.bsRate)}
+            {balanceLabel(sale.balanceUsd, balanceBsAtRate, selectedBsRate)}
+            {meta.currency === 'BS' && selectedBsRate
+              ? ' · Bs según tasa elegida (cierre en USD)'
+              : ''}
           </DialogDescription>
         </DialogHeader>
 

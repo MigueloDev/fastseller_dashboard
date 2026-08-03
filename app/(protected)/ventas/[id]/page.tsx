@@ -192,12 +192,23 @@ export default function VentaDetailPage() {
           {sale.status === 'PENDIENTE' && (
             <p className="mt-1 text-xs text-gray-500">
               {sale.bsRate
-                ? `tasa ${sale.bsRate.rate.toFixed(2)} · ${rateAgeLabel(sale.bsRate.fetchedAt)}`
+                ? `equiv. Bs a tasa actual ${sale.bsRate.rate.toFixed(2)} · ${rateAgeLabel(sale.bsRate.fetchedAt)} (solo referencia; cada pago usa su propia tasa)`
                 : 'Sin tasa BCV para equivalente en Bs'}
             </p>
           )}
           <p className="mt-2 text-xs text-gray-400">
             Total venta {formatUsd(sale.totalUsd)}
+            {sale.payments.length > 0 && (
+              <>
+                {' · '}
+                Abonado{' '}
+                {formatUsd(
+                  Math.round(
+                    sale.payments.reduce((s, p) => s + p.amountUsd, 0) * 100,
+                  ) / 100,
+                )}
+              </>
+            )}
           </p>
         </div>
 
