@@ -2,11 +2,20 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import toast from 'react-hot-toast'
-import { Download } from 'lucide-react'
-import type { DeliveryStatus, SaleStatus, SalesReport } from '@/types'
+import { Download, FileText } from 'lucide-react'
+import type {
+  DeliveryStatus,
+  PaymentState,
+  SaleStatus,
+  SalesReport,
+} from '@/types'
 import { useApi } from '@/hooks/useApi'
+import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
+import { PageContainer } from '@/components/ui/page-header'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { TableSkeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 import {
   DEFAULT_RANGE,
   ReportRange,
@@ -15,17 +24,31 @@ import {
   type RangeState,
 } from '@/components/reportes/ReportRange'
 import { formatBs, formatUsd } from '@/lib/ventas/money'
+import { formatDateTime } from '@/lib/format'
 import { csvDateTime, downloadCsv, toCsv } from '@/lib/reports/csv'
 
-const STATUS_LABEL: Record<SaleStatus, string> = {
-  PENDIENTE: 'Pendiente',
+const PAYMENT_STATE_LABEL: Record<PaymentState, string> = {
   PAGADA: 'Pagada',
-  ANULADA: 'Anulada',
+  ABONADA: 'Abonada',
+  CREDITO: 'A crédito',
 }
 
 const DELIVERY_LABEL: Record<DeliveryStatus, string> = {
   POR_ENTREGAR: 'Por entregar',
   ENTREGADA: 'Entregada',
+}
+
+function CobroBadge({ sale }: { sale: SalesReport['sales'][number] }) {
+  if (sale.status === 'ANULADA') return <StatusBadge status="ANULADA" />
+  if (sale.paymentState) return <StatusBadge status={sale.paymentState} />
+  return <StatusBadge status={sale.status} />
+}
+
+// Versión texto para la columna Estado del CSV
+function cobroLabel(sale: SalesReport['sales'][number]): string {
+  if (sale.status === 'ANULADA') return 'Anulada'
+  if (sale.paymentState) return PAYMENT_STATE_LABEL[sale.paymentState]
+  return sale.status === 'PAGADA' ? 'Pagada' : 'Pendiente'
 }
 
 function itemsSummary(sale: SalesReport['sales'][number]): string {
@@ -42,6 +65,7 @@ export default function ReporteVentasPage() {
   const [range, setRange] = useState<RangeState>(DEFAULT_RANGE)
   const [status, setStatus] = useState<SaleStatus | ''>('')
   const [delivery, setDelivery] = useState<DeliveryStatus | ''>('')
+  const [paymentState, setPaymentState] = useState<PaymentState | ''>('')
   const [report, setReport] = useState<SalesReport | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -52,14 +76,15 @@ export default function ReporteVentasPage() {
         ...rangeQuery(range),
         status: status || undefined,
         delivery: delivery || undefined,
+        paymentState: paymentState || undefined,
       })
       setReport(data)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error cargando reporte')
+      notify.error(err instanceof Error ? err.message : 'Error cargando reporte')
     } finally {
       setLoading(false)
     }
-  }, [api, range, status, delivery])
+  }, [api, range, status, delivery, paymentState])
 
   useEffect(() => {
     void load()
@@ -67,7 +92,7 @@ export default function ReporteVentasPage() {
 
   function exportCsv() {
     if (!report || report.sales.length === 0) return
-    const csv = toCsv(
+    let csv = toCsv(
       [
         'Fecha',
         'Venta',
@@ -89,7 +114,7 @@ export default function ReporteVentasPage() {
         sale.customerCedula ?? '',
         itemsSummary(sale),
         sale.priceRef === 'REF_USD' ? 'Divisas' : 'Bolívares',
-        STATUS_LABEL[sale.status],
+        cobroLabel(sale),
         DELIVERY_LABEL[sale.deliveryStatus],
         sale.totalUsd.toFixed(2),
         sale.collectedUsd.toFixed(2),
@@ -97,13 +122,46 @@ export default function ReporteVentasPage() {
         sale.agentName ?? '',
       ]),
     )
+    // ponytail: second tables in same file; Excel ignores mismatched column counts
+    const buckets = report.byPaymentState
+    csv += `\r\n\r\nCobro\r\n${toCsv(
+      ['Estado', 'Ventas', 'Unidades', 'Total USD', 'Cobrado USD', 'Saldo USD'],
+      (['PAGADA', 'ABONADA', 'CREDITO'] as const).map((key) => {
+        const b = buckets[key]
+        return [
+          PAYMENT_STATE_LABEL[key],
+          b.count,
+          b.unitsSold,
+          b.totalUsd.toFixed(2),
+          b.collectedUsd.toFixed(2),
+          b.balanceUsd.toFixed(2),
+        ]
+      }),
+    )}`
+    if (report.byProduct.length > 0) {
+      const products = toCsv(
+        ['Producto', 'Variante', 'Unidades', 'Total USD'],
+        report.byProduct.map((row) => [
+          row.productName,
+          row.variantName ?? '',
+          row.unitsSold,
+          row.revenueUsd.toFixed(2),
+        ]),
+      )
+      csv += `\r\n\r\nProductos vendidos\r\n${products}`
+    }
     downloadCsv(`ventas_${rangeLabel(range)}`, csv)
   }
 
   const totals = report?.totals
+  const byPay = report?.byPaymentState
+  const creditSales =
+    report && paymentState !== 'CREDITO'
+      ? report.sales.filter((s) => s.paymentState === 'CREDITO')
+      : []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
+    <PageContainer wide>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ReportRange value={range} onChange={setRange} />
         <div className="flex flex-wrap items-center gap-2">
@@ -116,6 +174,16 @@ export default function ReporteVentasPage() {
             <option value="PENDIENTE">Pendientes</option>
             <option value="PAGADA">Pagadas</option>
             <option value="ANULADA">Anuladas</option>
+          </select>
+          <select
+            className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
+            value={paymentState}
+            onChange={(e) => setPaymentState(e.target.value as PaymentState | '')}
+          >
+            <option value="">Todo cobro</option>
+            <option value="PAGADA">Pagadas</option>
+            <option value="ABONADA">Abonadas</option>
+            <option value="CREDITO">A crédito</option>
           </select>
           <select
             className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
@@ -132,49 +200,48 @@ export default function ReporteVentasPage() {
             onClick={exportCsv}
             disabled={!report || report.sales.length === 0}
           >
-            <Download className="mr-1 h-4 w-4" />
+            <Download className="size-4" />
             CSV
           </Button>
         </div>
       </div>
 
-      {totals && (
+      {totals && byPay && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <SummaryCard
-            label="Vendido"
+            label="Vendidas"
             usd={totals.totalUsd}
             bs={totals.totalBs}
-            hint={`${totals.count} venta${totals.count === 1 ? '' : 's'}`}
+            hint={`${totals.unitsSold} ud. · ${totals.count} venta${totals.count === 1 ? '' : 's'}`}
           />
           <SummaryCard
-            label="Cobrado"
-            usd={totals.collectedUsd}
-            bs={totals.collectedBs}
-            hint={`${totals.collectedCount} pago${totals.collectedCount === 1 ? '' : 's'}`}
-          />
-          <SummaryCard
-            label="Por cobrar"
-            usd={totals.balanceUsd}
-            bs={totals.balanceBs}
-            hint="saldo de estas ventas"
-          />
-          <SummaryCard
-            label="Por entregar"
-            usd={report!.byDelivery.POR_ENTREGAR.totalUsd}
+            label="Pagadas"
+            usd={byPay.PAGADA.totalUsd}
             bs={null}
-            hint={`${report!.byDelivery.POR_ENTREGAR.count} venta${
-              report!.byDelivery.POR_ENTREGAR.count === 1 ? '' : 's'
-            } sin entregar`}
+            hint={`${byPay.PAGADA.count} venta${byPay.PAGADA.count === 1 ? '' : 's'} · ${byPay.PAGADA.unitsSold} ud.`}
+          />
+          <SummaryCard
+            label="Abonadas"
+            usd={byPay.ABONADA.balanceUsd}
+            bs={null}
+            hint={`${byPay.ABONADA.count} · cobrado ${formatUsd(byPay.ABONADA.collectedUsd)} · saldo`}
+          />
+          <SummaryCard
+            label="A crédito"
+            usd={byPay.CREDITO.totalUsd}
+            bs={null}
+            hint={`${byPay.CREDITO.count} venta${byPay.CREDITO.count === 1 ? '' : 's'} sin pago`}
           />
         </div>
       )}
 
       {loading ? (
-        <p className="text-sm text-gray-500">Cargando…</p>
+        <TableSkeleton rows={6} />
       ) : !report || report.sales.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
-          No hay ventas en este período.
-        </div>
+        <EmptyState
+          icon={FileText}
+          title="No hay ventas en este período."
+        />
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -199,10 +266,7 @@ export default function ReporteVentasPage() {
                         href={`/ventas/${sale.id}`}
                         className="hover:text-violet-700 hover:underline"
                       >
-                        {new Date(sale.createdAt).toLocaleString('es', {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        })}
+                        {formatDateTime(sale.createdAt)}
                       </Link>
                     </td>
                     <td className="px-3 py-2 text-gray-900">{sale.customerName}</td>
@@ -218,8 +282,8 @@ export default function ReporteVentasPage() {
                     <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-amber-800">
                       {sale.status === 'ANULADA' ? '—' : formatUsd(sale.balanceUsd)}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-gray-600">
-                      {STATUS_LABEL[sale.status]}
+                    <td className="whitespace-nowrap px-3 py-2">
+                      <CobroBadge sale={sale} />
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-gray-600">
                       {sale.status === 'ANULADA'
@@ -234,6 +298,7 @@ export default function ReporteVentasPage() {
                   <tr>
                     <td className="px-3 py-2 text-gray-600" colSpan={3}>
                       {totals.count} venta{totals.count === 1 ? '' : 's'}
+                      {` · ${totals.unitsSold} ud.`}
                       {totals.voidedCount > 0
                         ? ` · ${totals.voidedCount} anulada${totals.voidedCount === 1 ? '' : 's'} (no suman)`
                         : ''}
@@ -254,9 +319,50 @@ export default function ReporteVentasPage() {
             </table>
           </div>
 
+          {creditSales.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-lg font-medium text-gray-900">
+                A crédito
+              </h2>
+              <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                <table className="w-full min-w-[28rem] text-sm">
+                  <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase text-gray-500">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Fecha</th>
+                      <th className="px-3 py-2 font-medium">Cliente</th>
+                      <th className="px-3 py-2 font-medium">Cédula</th>
+                      <th className="px-3 py-2 text-right font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {creditSales.map((sale) => (
+                      <tr key={sale.id} className="hover:bg-gray-50">
+                        <td className="whitespace-nowrap px-3 py-2 text-gray-600">
+                          <Link
+                            href={`/ventas/${sale.id}`}
+                            className="hover:text-violet-700 hover:underline"
+                          >
+                            {formatDateTime(sale.createdAt)}
+                          </Link>
+                        </td>
+                        <td className="px-3 py-2 text-gray-900">{sale.customerName}</td>
+                        <td className="px-3 py-2 text-gray-600">
+                          {sale.customerCedula ?? '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-amber-800">
+                          {formatUsd(sale.totalUsd)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
           {report.byProduct.length > 0 && (
             <section>
-              <h2 className="mb-2 text-sm font-medium text-gray-700">
+              <h2 className="mb-2 text-lg font-medium text-gray-900">
                 Por producto
               </h2>
               <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -292,7 +398,7 @@ export default function ReporteVentasPage() {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   )
 }
 
@@ -309,12 +415,12 @@ function SummaryCard({
 }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-3">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="mt-0.5 text-xl font-semibold tabular-nums text-gray-900">
+      <p className="text-sm text-gray-500">{label}</p>
+      <p className="mt-0.5 tabular-nums text-xl font-semibold text-gray-900">
         {formatUsd(usd)}
       </p>
       {bs != null && (
-        <p className="text-xs tabular-nums text-gray-500">{formatBs(bs)}</p>
+        <p className="tabular-nums text-xs text-gray-500">{formatBs(bs)}</p>
       )}
       <p className="mt-0.5 text-xs text-gray-400">{hint}</p>
     </div>

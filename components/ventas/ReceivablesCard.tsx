@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import type { ReceivablesResponse } from '@/types'
-import { balanceLabel, formatUsd } from '@/lib/ventas/money'
+import { balanceLabel, formatBs, formatUsd } from '@/lib/ventas/money'
+import { Skeleton } from '@/components/ui/skeleton'
 
 type Props = {
   data: ReceivablesResponse | null
@@ -12,15 +13,16 @@ type Props = {
 export function ReceivablesCard({ data, loading }: Props) {
   if (loading) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-500">
-        Cargando cuentas por cobrar…
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="mt-3 h-6 w-56" />
       </div>
     )
   }
   if (!data || data.customers.length === 0) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <p className="text-sm font-medium text-gray-900">Cuentas por cobrar</p>
+        <p className="text-lg font-medium text-gray-900">Cuentas por cobrar</p>
         <p className="mt-1 text-sm text-gray-500">Sin saldos pendientes.</p>
       </div>
     )
@@ -29,17 +31,14 @@ export function ReceivablesCard({ data, loading }: Props) {
   const top = data.customers.slice(0, 5)
 
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-4">
+    <div className="rounded-lg border border-amber-300 bg-amber-50/40 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-gray-900">Cuentas por cobrar</p>
-        <p className="text-lg font-semibold text-amber-800">
+        <p className="text-lg font-medium text-gray-900">Cuentas por cobrar</p>
+        <p className="tabular-nums text-lg font-semibold text-amber-800">
           {formatUsd(data.totalOwedUsd)}
           {data.totalOwedBs != null && data.bsRate && (
-            <span className="ml-2 text-sm font-normal text-amber-700">
-              ≈ Bs{' '}
-              {data.totalOwedBs.toLocaleString('es-VE', {
-                minimumFractionDigits: 2,
-              })}
+            <span className="ml-2 text-sm font-normal">
+              ≈ {formatBs(data.totalOwedBs)}
             </span>
           )}
         </p>
@@ -56,7 +55,7 @@ export function ReceivablesCard({ data, loading }: Props) {
                 {g.sales.length} venta{g.sales.length === 1 ? '' : 's'}
               </span>
             </div>
-            <div className="shrink-0 text-right text-amber-900">
+            <div className="shrink-0 text-right tabular-nums text-sm text-amber-800">
               {balanceLabel(g.totalOwedUsd, g.totalOwedBs, data.bsRate)}
             </div>
           </li>

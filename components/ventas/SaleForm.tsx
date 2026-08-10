@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import toast from 'react-hot-toast'
 import { Plus } from 'lucide-react'
 import type {
   Customer,
@@ -13,9 +12,11 @@ import type {
   Sale,
 } from '@/types'
 import { useApi } from '@/hooks/useApi'
+import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PageHeader } from '@/components/ui/page-header'
 import { BcvRatePicker } from '@/components/ventas/BcvRatePicker'
 import { PriceModeSelector } from '@/components/ventas/PriceModeSelector'
 import { SaleLineItem, type LineDraft } from '@/components/ventas/SaleLineItem'
@@ -98,6 +99,7 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
   const [note, setNote] = useState(initialSale?.note ?? '')
   const [rateId, setRateId] = useState(rateHistory[0]?.id ?? '')
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<{ customer?: string; lines?: string }>({})
 
   // Tasa solo para el equivalente Bs en pantalla; la venta se guarda en USD.
   const pickedRate = rateHistory.find((r) => r.id === rateId) ?? null
@@ -144,10 +146,19 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
   }, [lines, activeProducts, priceRef, quoteRate, productQtys])
 
   async function submit() {
-    setSaving(true)
+    setErrors({})
+    if (!customer?.id) {
+      setErrors({ customer: 'Selecciona o registra un cliente' })
+      return
+    }
+    let items: Array<{
+      productId: string
+      variantId: string | null
+      quantity: number
+      unitPriceUsd: number
+    }>
     try {
-      if (!customer?.id) throw new Error('Selecciona o registra un cliente')
-      const items = []
+      items = []
       for (const line of lines) {
         const product = activeProducts.find((p) => p.id === line.productId)
         if (!product) throw new Error('Producto inválido en una línea')
@@ -172,7 +183,15 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
         })
       }
       if (items.length === 0) throw new Error('Agrega al menos un producto')
+    } catch (err) {
+      setErrors({
+        lines: err instanceof Error ? err.message : 'Revisa las líneas',
+      })
+      return
+    }
 
+    setSaving(true)
+    try {
       const payload = {
         customerId: customer.id,
         priceRef,
@@ -183,10 +202,10 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
       const sale = initialSale
         ? await api.updateSale(initialSale.id, payload)
         : await api.createSale(payload)
-      toast.success(isEdit ? 'Venta actualizada' : 'Venta creada')
+      notify.success(isEdit ? 'Venta actualizada' : 'Venta creada')
       router.push(`/ventas/${sale.id}`)
     } catch (err) {
-      toast.error(
+      notify.error(
         err instanceof Error
           ? err.message
           : isEdit
@@ -208,16 +227,23 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
       : null
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 pb-24">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">
-          {isEdit ? 'Editar venta' : 'Nueva venta'}
-        </h1>
-      </div>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-4 pb-24 sm:px-6 sm:py-6">
+      <PageHeader title={isEdit ? 'Editar venta' : 'Nueva venta'} />
 
       <section className="space-y-2 rounded-lg border border-gray-200 bg-white p-4">
-        <Label>Cliente</Label>
-        <CustomerPicker value={customer} onChange={setCustomer} />
+        <Label>
+          Cliente <span className="text-red-600">*</span>
+        </Label>
+        <CustomerPicker
+          value={customer}
+          onChange={(c) => {
+            setCustomer(c)
+            setErrors((e) => ({ ...e, customer: undefined }))
+          }}
+        />
+        {errors.customer && (
+          <p className="mt-1 text-xs text-red-600">{errors.customer}</p>
+        )}
       </section>
 
       {rateHistory.length > 0 && (
@@ -252,7 +278,9 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-gray-700">Líneas</h2>
+          <h2 className="text-lg font-medium text-gray-900">
+            Líneas <span className="text-red-600">*</span>
+          </h2>
           <Button
             type="button"
             size="sm"
@@ -278,16 +306,20 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
               productQtys.get(line.productId) ?? (Number(line.quantity) || 1)
             }
             canRemove={lines.length > 1}
-            onChange={(patch) =>
+            onChange={(patch) => {
               setLines((prev) =>
                 prev.map((l) => (l.key === line.key ? { ...l, ...patch } : l)),
               )
-            }
+              setErrors((e) => ({ ...e, lines: undefined }))
+            }}
             onRemove={() =>
               setLines((prev) => prev.filter((l) => l.key !== line.key))
             }
           />
         ))}
+        {errors.lines && (
+          <p className="mt-1 text-xs text-red-600">{errors.lines}</p>
+        )}
       </section>
 
       <div>
@@ -299,10 +331,10 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
         />
       </div>
 
-      <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-gray-50/95 px-4 py-3 backdrop-blur">
+      <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-gray-50/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-2xl font-semibold tabular-nums text-gray-900 sm:text-3xl">
+            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 tabular-nums text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
               <span>{formatUsd(totals.selected)}</span>
               {totals.equivBs != null && (
                 <>
@@ -316,6 +348,7 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
             </p>
           </div>
           <Button
+            variant="primary"
             size="lg"
             disabled={saving || !customer}
             onClick={() => void submit()}

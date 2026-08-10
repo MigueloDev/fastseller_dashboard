@@ -15,6 +15,7 @@ import { MetricCard } from '@/components/dashboard/MetricCard'
 import { TopProducts } from '@/components/dashboard/TopProducts'
 import { SalesChart } from '@/components/dashboard/SalesChart'
 import { LowStockAlert } from '@/components/dashboard/LowStockAlert'
+import { PageContainer, PageHeader } from '@/components/ui/page-header'
 
 function HomeSkeleton() {
   return (
@@ -90,15 +91,17 @@ export default function HomePage() {
 
   return (
     <div className="flex h-full flex-col overflow-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
-        <h1 className="text-lg font-semibold text-gray-900">Inicio</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <BrechaChip rates={rates} loading={ratesLoading} />
-          <PeriodTabs value={period} onChange={setPeriod} />
-        </div>
-      </div>
+      <PageContainer>
+        <PageHeader
+          title="Inicio"
+          actions={
+            <>
+              <BrechaChip rates={rates} loading={ratesLoading} />
+              <PeriodTabs value={period} onChange={setPeriod} />
+            </>
+          }
+        />
 
-      <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
         {loading && <HomeSkeleton />}
 
         {!loading && error && (
@@ -165,7 +168,7 @@ export default function HomePage() {
             </div>
           </>
         )}
-      </div>
+      </PageContainer>
     </div>
   )
 }

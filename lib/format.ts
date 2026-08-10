@@ -31,3 +31,32 @@ export function formatTime(date: string | null): string {
 export function formatMessageTime(date: string): string {
   return new Date(date).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
 }
+
+const VE_TZ = 'America/Caracas'
+
+const veDate = new Intl.DateTimeFormat('es-VE', {
+  timeZone: VE_TZ,
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+})
+
+const veDateTime = new Intl.DateTimeFormat('es-VE', {
+  timeZone: VE_TZ,
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+/** dd/MM/yyyy en America/Caracas (convención CLAUDE.md) */
+export function formatDate(date: string | Date): string {
+  return veDate.format(new Date(date))
+}
+
+/** dd/MM/yyyy, HH:mm (24h) en America/Caracas */
+export function formatDateTime(date: string | Date): string {
+  return veDateTime.format(new Date(date))
+}

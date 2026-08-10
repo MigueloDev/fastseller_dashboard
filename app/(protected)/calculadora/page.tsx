@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import toast from "react-hot-toast";
+import { notify as toast } from "@/lib/toast";
 import type { Inputs } from "@/lib/calculadora/types";
 import { compute } from "@/lib/calculadora/calculations";
 import { useApi } from "@/hooks/useApi";

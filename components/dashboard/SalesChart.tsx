@@ -81,19 +81,23 @@ export function SalesChart({ points, period, from, to }: Props) {
   if (series.length === 0) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <p className="text-sm font-medium text-gray-900">Ventas por día</p>
+        <p className="text-lg font-medium text-gray-900">Ventas por día</p>
         <p className="mt-2 text-sm text-gray-500">Sin datos en este período</p>
       </div>
     )
   }
 
   const max = Math.max(...series.map((p) => p.totalUsd), 0.01)
+  const total = series.reduce((acc, p) => acc + p.totalUsd, 0)
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4">
-      <p className="text-sm font-medium text-gray-900">
-        {isWeekly ? 'Ventas por semana' : 'Ventas por día'}
-      </p>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-lg font-medium text-gray-900">
+          {isWeekly ? 'Ventas por semana' : 'Ventas por día'}
+        </p>
+        <p className="tabular-nums text-sm text-gray-900">{formatUsd(total)}</p>
+      </div>
       <div className="mt-4 flex h-36 items-end gap-0.5 sm:gap-1">
         {series.map((p) => {
           const h = Math.max(2, Math.round((p.totalUsd / max) * 100))

@@ -10,22 +10,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { formatDateTime } from '@/lib/format'
 
 const TYPE_STYLE: Record<MovementType, string> = {
   ENTRADA: 'bg-green-50 text-green-800 border-green-200',
   SALIDA: 'bg-red-50 text-red-700 border-red-200',
   AJUSTE: 'bg-amber-50 text-amber-800 border-amber-200',
-}
-
-function formatWhen(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString('es-VE', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    })
-  } catch {
-    return iso
-  }
 }
 
 type Props = {
@@ -80,7 +70,7 @@ export function MovementHistory({
               </TableCell>
               <TableCell className="text-xs">{m.agentName ?? '—'}</TableCell>
               <TableCell className="text-xs whitespace-nowrap">
-                {formatWhen(m.createdAt)}
+                {formatDateTime(m.createdAt)}
               </TableCell>
               <TableCell className="text-xs text-muted-foreground max-w-[12rem] truncate">
                 {m.note ?? '—'}

@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import toast from 'react-hot-toast'
-import { Download } from 'lucide-react'
-import type { KardexReport, KardexSection, MovementType, Product } from '@/types'
+import { Boxes, Download } from 'lucide-react'
+import type { KardexReport, KardexSection, Product } from '@/types'
 import { useApi } from '@/hooks/useApi'
-import { Badge } from '@/components/ui/badge'
+import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
+import { PageContainer } from '@/components/ui/page-header'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { TableSkeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 import {
   DEFAULT_RANGE,
   ReportRange,
@@ -15,13 +18,8 @@ import {
   rangeQuery,
   type RangeState,
 } from '@/components/reportes/ReportRange'
+import { formatDateTime } from '@/lib/format'
 import { csvDateTime, downloadCsv, toCsv } from '@/lib/reports/csv'
-
-const TYPE_STYLE: Record<MovementType, string> = {
-  ENTRADA: 'bg-green-50 text-green-800 border-green-200',
-  SALIDA: 'bg-red-50 text-red-700 border-red-200',
-  AJUSTE: 'bg-amber-50 text-amber-800 border-amber-200',
-}
 
 export default function ReporteKardexPage() {
   const api = useApi()
@@ -40,7 +38,7 @@ export default function ReporteKardexPage() {
         setProductId((prev) => prev || list[0]?.id || '')
       })
       .catch((err: unknown) => {
-        toast.error(err instanceof Error ? err.message : 'Error cargando productos')
+        notify.error(err instanceof Error ? err.message : 'Error cargando productos')
       })
   }, [api])
 
@@ -58,7 +56,7 @@ export default function ReporteKardexPage() {
       })
       setReport(data)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error cargando kardex')
+      notify.error(err instanceof Error ? err.message : 'Error cargando kardex')
       setReport(null)
     } finally {
       setLoading(false)
@@ -121,7 +119,7 @@ export default function ReporteKardexPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
+    <PageContainer wide>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ReportRange value={range} onChange={setRange} />
         <div className="flex flex-wrap items-center gap-2">
@@ -160,18 +158,19 @@ export default function ReporteKardexPage() {
             onClick={exportCsv}
             disabled={!report}
           >
-            <Download className="mr-1 h-4 w-4" />
+            <Download className="size-4" />
             CSV
           </Button>
         </div>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Cargando…</p>
+        <TableSkeleton rows={6} />
       ) : !report ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
-          Elige un producto para ver su kardex.
-        </div>
+        <EmptyState
+          icon={Boxes}
+          title="Elige un producto para ver su kardex."
+        />
       ) : (
         report.sections.map((section) => (
           <KardexTable
@@ -181,7 +180,7 @@ export default function ReporteKardexPage() {
           />
         ))
       )}
-    </div>
+    </PageContainer>
   )
 }
 
@@ -195,7 +194,7 @@ function KardexTable({
   return (
     <section>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-medium text-gray-700">
+        <h2 className="text-lg font-medium text-gray-900">
           {section.variantName ? `${productName} · ${section.variantName}` : productName}
         </h2>
         <p className="text-xs text-gray-500">
@@ -233,7 +232,7 @@ function KardexTable({
               <td className="px-3 py-2" colSpan={4}>
                 Saldo inicial
               </td>
-              <td className="px-3 py-2 text-right font-medium tabular-nums">
+              <td className="px-3 py-2 text-right tabular-nums font-medium">
                 {section.opening}
               </td>
               <td colSpan={2} />
@@ -248,18 +247,10 @@ function KardexTable({
               section.movements.map((m) => (
                 <tr key={m.id} className="hover:bg-gray-50">
                   <td className="whitespace-nowrap px-3 py-2 text-gray-600">
-                    {new Date(m.createdAt).toLocaleString('es-VE', {
-                      dateStyle: 'short',
-                      timeStyle: 'short',
-                    })}
+                    {formatDateTime(m.createdAt)}
                   </td>
                   <td className="px-3 py-2">
-                    <Badge
-                      variant="secondary"
-                      className={`text-[10px] ${TYPE_STYLE[m.type]}`}
-                    >
-                      {m.type}
-                    </Badge>
+                    <StatusBadge status={m.type} />
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-green-700">
                     {m.entrada || ''}
@@ -267,7 +258,7 @@ function KardexTable({
                   <td className="px-3 py-2 text-right tabular-nums text-red-700">
                     {m.salida || ''}
                   </td>
-                  <td className="px-3 py-2 text-right font-medium tabular-nums text-gray-900">
+                  <td className="px-3 py-2 text-right tabular-nums font-medium text-gray-900">
                     {m.balance}
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-600">

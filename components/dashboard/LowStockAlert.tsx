@@ -22,7 +22,7 @@ export function LowStockAlert({ items }: Props) {
       className="block rounded-lg border border-amber-200 bg-amber-50/60 p-4 transition-colors hover:bg-amber-50"
     >
       <div className="flex items-start gap-2">
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-800" />
         <div className="min-w-0">
           <p className="text-sm font-medium text-amber-900">Stock bajo</p>
           <ul className="mt-1 space-y-0.5 text-sm text-amber-800">

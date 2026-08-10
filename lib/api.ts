@@ -4,10 +4,13 @@ import type {
   CreateMovementPayload,
   CreatePaymentPayload,
   CreateSalePayload,
+  CreateDeliveryNotePayload,
   CreateCurrencyPurchasePayload,
   CurrencyPurchasesPage,
   EligibleSaleForFx,
   Customer,
+  DeliveryNote,
+  DeliveryNotesPage,
   ExchangeRates,
   RatesHistoryResponse,
   Message,
@@ -243,6 +246,21 @@ export const api = {
       token,
     ),
 
+  putPaymentReceipt: (
+    token: string,
+    paymentId: string,
+    data: { receiptBase64: string },
+  ) =>
+    request<Sale>(`/payments/${paymentId}/receipt`, token, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deletePaymentReceipt: (token: string, paymentId: string) =>
+    request<Sale>(`/payments/${paymentId}/receipt`, token, {
+      method: 'DELETE',
+    }),
+
   voidSale: (token: string, saleId: string) =>
     request<Sale>(`/sales/${saleId}/void`, token, { method: 'POST' }),
 
@@ -251,6 +269,45 @@ export const api = {
 
   undeliverSale: (token: string, saleId: string) =>
     request<Sale>(`/sales/${saleId}/undeliver`, token, { method: 'POST' }),
+
+  getDeliveryNotes: (
+    token: string,
+    params: {
+      status?: string
+      customerId?: string
+      from?: string
+      to?: string
+      limit?: number
+      offset?: number
+    } = {},
+  ) => {
+    const qs = new URLSearchParams()
+    if (params.status) qs.set('status', params.status)
+    if (params.customerId) qs.set('customerId', params.customerId)
+    if (params.from) qs.set('from', params.from)
+    if (params.to) qs.set('to', params.to)
+    if (params.limit != null) qs.set('limit', String(params.limit))
+    if (params.offset != null) qs.set('offset', String(params.offset))
+    const query = qs.toString()
+    return request<DeliveryNotesPage>(
+      `/delivery-notes${query ? `?${query}` : ''}`,
+      token,
+    )
+  },
+
+  getDeliveryNote: (token: string, id: string) =>
+    request<DeliveryNote>(`/delivery-notes/${id}`, token),
+
+  createDeliveryNote: (token: string, data: CreateDeliveryNotePayload) =>
+    request<DeliveryNote>('/delivery-notes', token, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  voidDeliveryNote: (token: string, id: string) =>
+    request<DeliveryNote>(`/delivery-notes/${id}/void`, token, {
+      method: 'POST',
+    }),
 
   getReceivables: (token: string) =>
     request<ReceivablesResponse>('/receivables', token),
@@ -277,6 +334,7 @@ export const api = {
       status?: string
       delivery?: string
       customerId?: string
+      paymentState?: string
     } = {}
   ) => {
     const qs = new URLSearchParams()
@@ -285,6 +343,7 @@ export const api = {
     if (params.status) qs.set('status', params.status)
     if (params.delivery) qs.set('delivery', params.delivery)
     if (params.customerId) qs.set('customerId', params.customerId)
+    if (params.paymentState) qs.set('paymentState', params.paymentState)
     const query = qs.toString()
     return request<SalesReport>(
       `/reports/sales${query ? `?${query}` : ''}`,

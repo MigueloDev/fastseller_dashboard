@@ -5,10 +5,10 @@ import { NavLink } from '@/components/NavLink'
 import {
   MessageCircle,
   Calculator,
-  FileText,
   Package,
   ShoppingCart,
   Home,
+  Truck,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -57,7 +57,7 @@ export default function ProtectedLayout({
 
       <ClerkLoaded>
         <div className="h-screen flex flex-col bg-gray-50">
-          <nav className="h-12 bg-white border-b border-gray-200 flex items-center
+          <nav className="print:hidden h-12 bg-white border-b border-gray-200 flex items-center
             justify-between px-4 shrink-0 z-10">
             <div className="flex items-center gap-6">
               <Link
@@ -72,6 +72,7 @@ export default function ProtectedLayout({
                 <NavLink href="/inbox" label="Conversaciones" />
                 <NavLink href="/productos" label="Productos" />
                 <NavLink href="/ventas" label="Ventas" />
+                <NavLink href="/entregas" label="Entregas" />
                 <NavLink href="/clientes" label="Clientes" />
                 <NavLink href="/reportes" label="Reportes" />
                 <NavLink href="/calculadora" label="Calculadora" />
@@ -87,13 +88,13 @@ export default function ProtectedLayout({
             {children}
           </main>
 
-          <nav className="md:hidden h-14 bg-white border-t border-gray-200 flex
+          <nav className="print:hidden md:hidden h-14 bg-white border-t border-gray-200 flex
             items-center justify-around shrink-0">
             <MobileTab href="/" label="Inicio" icon={Home} />
             <MobileTab href="/inbox" label="Chats" icon={MessageCircle} />
             <MobileTab href="/productos" label="Productos" icon={Package} />
             <MobileTab href="/ventas" label="Ventas" icon={ShoppingCart} />
-            <MobileTab href="/reportes" label="Reportes" icon={FileText} />
+            <MobileTab href="/entregas" label="Entregas" icon={Truck} />
             <MobileTab href="/calculadora" label="Calc" icon={Calculator} />
           </nav>
         </div>

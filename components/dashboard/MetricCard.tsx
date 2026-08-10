@@ -17,7 +17,7 @@ export function MetricCard({ label, value, sub, href, className }: Props) {
       <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
         {label}
       </p>
-      <p className="mt-1 text-3xl font-semibold tracking-tight text-gray-900">
+      <p className="mt-1 tabular-nums text-3xl font-semibold tracking-tight text-gray-900">
         {value}
       </p>
       {sub != null && (

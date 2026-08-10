@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
+import { notify as toast } from '@/lib/toast'
 import type { ExchangeRates, Product, ProductWritePayload } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'

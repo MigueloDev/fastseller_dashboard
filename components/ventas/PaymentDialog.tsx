@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import toast from 'react-hot-toast'
 import type { ExchangeRateRow, ExchangeRates, PaymentMethod, Sale } from '@/types'
 import { useApi } from '@/hooks/useApi'
+import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -56,6 +56,7 @@ export function PaymentDialog({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [rateId, setRateId] = useState(rateHistory[0]?.id ?? '')
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<{ amount?: string; receipt?: string }>({})
 
   const meta = PAYMENT_METHOD_META[method]
   const pickedRate = rateHistory.find((r) => r.id === rateId) ?? null
@@ -78,6 +79,7 @@ export function PaymentDialog({
     if (!open) return
     setMethod('PAGO_MOVIL')
     setAmountInput('')
+    setErrors({})
     setInputMode('native')
     setNote('')
     setRateId(rateHistory[0]?.id ?? '')
@@ -122,7 +124,7 @@ export function PaymentDialog({
       return
     }
     if (balanceBsAtRate == null) {
-      toast.error('Sin tasa BCV')
+      setErrors((e) => ({ ...e, amount: 'Sin tasa BCV para convertir' }))
       return
     }
     setAmountInput(String(balanceBsAtRate))
@@ -138,28 +140,30 @@ export function PaymentDialog({
       return
     }
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      toast.error('Solo JPEG, PNG o WebP')
+      setErrors((e) => ({ ...e, receipt: 'Solo JPEG, PNG o WebP' }))
       if (fileRef.current) fileRef.current.value = ''
       setReceiptFile(null)
       return
     }
     if (file.size > RECEIPT_MAX_BYTES) {
-      toast.error('La imagen supera 5 MB')
+      setErrors((e) => ({ ...e, receipt: 'La imagen supera 5 MB' }))
       if (fileRef.current) fileRef.current.value = ''
       setReceiptFile(null)
       return
     }
+    setErrors((e) => ({ ...e, receipt: undefined }))
     setReceiptFile(file)
     setPreviewUrl(URL.createObjectURL(file))
   }
 
   async function submit() {
+    setErrors({})
     if (computed.amountNative == null || computed.amountNative <= 0) {
-      toast.error('Monto inválido')
+      setErrors({ amount: 'Monto inválido' })
       return
     }
     if (meta.currency === 'BS' && (!rate || rate <= 0)) {
-      toast.error('No hay tasa BCV disponible')
+      setErrors({ amount: 'No hay tasa BCV disponible' })
       return
     }
     setSaving(true)
@@ -168,7 +172,7 @@ export function PaymentDialog({
       if (receiptFile) {
         const converted = await fileToWebpBase64(receiptFile)
         if (converted.bytes > RECEIPT_MAX_BYTES) {
-          toast.error('El WebP convertido supera 5 MB')
+          setErrors({ receipt: 'El WebP convertido supera 5 MB' })
           return
         }
         receiptBase64 = converted.base64
@@ -186,7 +190,7 @@ export function PaymentDialog({
           ? Math.round(updated.balanceUsd * rate * 100) / 100
           : updated.balanceBs
       const remRate = selectedBsRate ?? updated.bsRate
-      toast.success(
+      notify.success(
         updated.status === 'PAGADA'
           ? 'Venta pagada'
           : `Abonado. Faltan ${balanceLabel(updated.balanceUsd, remBs, remRate)}`,
@@ -194,7 +198,7 @@ export function PaymentDialog({
       onSaved(updated)
       onOpenChange(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error registrando pago')
+      notify.error(err instanceof Error ? err.message : 'Error registrando pago')
     } finally {
       setSaving(false)
     }
@@ -271,7 +275,7 @@ export function PaymentDialog({
           <div>
             <div className="flex items-center justify-between gap-2">
               <Label>
-                Monto{' '}
+                Monto <span className="text-red-600">*</span>{' '}
                 {meta.currency === 'BS'
                   ? inputMode === 'usd'
                     ? '(USD)'
@@ -294,8 +298,14 @@ export function PaymentDialog({
               min={0}
               step="0.01"
               value={amountInput}
-              onChange={(e) => setAmountInput(e.target.value)}
+              onChange={(e) => {
+                setAmountInput(e.target.value)
+                setErrors((er) => ({ ...er, amount: undefined }))
+              }}
             />
+            {errors.amount && (
+              <p className="mt-1 text-xs text-red-600">{errors.amount}</p>
+            )}
             {meta.currency === 'BS' && (
               <p className="mt-1 text-xs text-gray-500">
                 {rate
@@ -332,6 +342,9 @@ export function PaymentDialog({
               accept={RECEIPT_ACCEPT}
               onChange={(e) => onPickReceipt(e.target.files?.[0] ?? null)}
             />
+            {errors.receipt && (
+              <p className="mt-1 text-xs text-red-600">{errors.receipt}</p>
+            )}
             {receiptFile && (
               <div className="mt-2 flex items-start gap-3">
                 {previewUrl && (
@@ -369,7 +382,7 @@ export function PaymentDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={() => void submit()} disabled={saving}>
+          <Button variant="primary" onClick={() => void submit()} disabled={saving}>
             {saving ? 'Guardando…' : 'Registrar'}
           </Button>
         </DialogFooter>

@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import toast from 'react-hot-toast'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
 import type { ExchangeRateRow, ExchangeRates, Sale } from '@/types'
 import { useApi } from '@/hooks/useApi'
+import { notify } from '@/lib/toast'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { PageContainer, PageHeader } from '@/components/ui/page-header'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Skeleton } from '@/components/ui/skeleton'
 import { PaymentDialog } from '@/components/ventas/PaymentDialog'
 import { PaymentTimeline } from '@/components/ventas/PaymentTimeline'
 import { DeliveryBadge } from '@/components/ventas/DeliveryBadge'
@@ -17,6 +20,33 @@ import {
   formatUsd,
   rateAgeLabel,
 } from '@/lib/ventas/money'
+import { formatDateTime } from '@/lib/format'
+
+type ConfirmAction = 'void' | 'deliver' | 'undeliver'
+
+const CONFIRM_COPY: Record<
+  ConfirmAction,
+  { title: string; confirmLabel: string; loadingLabel: string; destructive: boolean }
+> = {
+  void: {
+    title: 'Anular venta',
+    confirmLabel: 'Anular venta',
+    loadingLabel: 'Anulando…',
+    destructive: true,
+  },
+  deliver: {
+    title: 'Marcar como entregada',
+    confirmLabel: 'Marcar entregada',
+    loadingLabel: 'Entregando…',
+    destructive: false,
+  },
+  undeliver: {
+    title: 'Revertir entrega',
+    confirmLabel: 'Revertir entrega',
+    loadingLabel: 'Revirtiendo…',
+    destructive: false,
+  },
+}
 
 export default function VentaDetailPage() {
   const params = useParams<{ id: string }>()
@@ -28,6 +58,7 @@ export default function VentaDetailPage() {
   const [payOpen, setPayOpen] = useState(false)
   const [voiding, setVoiding] = useState(false)
   const [delivering, setDelivering] = useState(false)
+  const [confirm, setConfirm] = useState<ConfirmAction | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -40,7 +71,7 @@ export default function VentaDetailPage() {
       setRates(r)
       setRateHistory(history.items)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error cargando venta')
+      notify.error(err instanceof Error ? err.message : 'Error cargando venta')
     } finally {
       setLoading(false)
     }
@@ -52,18 +83,13 @@ export default function VentaDetailPage() {
 
   async function handleVoid() {
     if (!sale) return
-    const warning =
-      sale.deliveryStatus === 'ENTREGADA'
-        ? '¿Anular esta venta? Se devolverá el stock entregado.'
-        : '¿Anular esta venta? Se liberará el stock reservado.'
-    if (!confirm(warning)) return
     setVoiding(true)
     try {
       const updated = await api.voidSale(sale.id)
       setSale(updated)
-      toast.success('Venta anulada')
+      notify.success('Venta anulada')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'No se pudo anular')
+      notify.error(err instanceof Error ? err.message : 'No se pudo anular')
     } finally {
       setVoiding(false)
     }
@@ -71,14 +97,13 @@ export default function VentaDetailPage() {
 
   async function handleDeliver() {
     if (!sale) return
-    if (!confirm('¿Marcar como entregada? Se descontará el stock físico.')) return
     setDelivering(true)
     try {
       const updated = await api.deliverSale(sale.id)
       setSale(updated)
-      toast.success('Venta entregada · stock descontado')
+      notify.success('Venta entregada · stock descontado')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'No se pudo entregar')
+      notify.error(err instanceof Error ? err.message : 'No se pudo entregar')
     } finally {
       setDelivering(false)
     }
@@ -86,23 +111,35 @@ export default function VentaDetailPage() {
 
   async function handleUndeliver() {
     if (!sale) return
-    if (!confirm('¿Revertir la entrega? El stock vuelve al inventario.')) return
     setDelivering(true)
     try {
       const updated = await api.undeliverSale(sale.id)
       setSale(updated)
-      toast.success('Entrega revertida · stock devuelto')
+      notify.success('Entrega revertida · stock devuelto')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'No se pudo revertir')
+      notify.error(err instanceof Error ? err.message : 'No se pudo revertir')
     } finally {
       setDelivering(false)
     }
   }
 
+  async function handleConfirmAction() {
+    const action = confirm
+    if (!action) return
+    if (action === 'void') await handleVoid()
+    else if (action === 'deliver') await handleDeliver()
+    else await handleUndeliver()
+    setConfirm(null)
+  }
+
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-500">
-        Cargando…
+      <div className="h-full overflow-auto">
+        <PageContainer>
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </PageContainer>
       </div>
     )
   }
@@ -126,46 +163,35 @@ export default function VentaDetailPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="border-b border-gray-200 bg-white px-4 py-3">
-        <Link
-          href="/ventas"
-          className="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Ventas
-        </Link>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">
-              {sale.customer?.name}
-            </h1>
-            <p className="text-xs text-gray-500">
-              {new Date(sale.createdAt).toLocaleString('es')}
-              {sale.agentName ? ` · ${sale.agentName}` : ''}
-              {' · '}
-              {sale.priceRef === 'REF_USD' ? 'Precio divisas' : 'Precio bolívares'}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge
-              className={
-                sale.status === 'PAGADA'
-                  ? 'bg-green-100 text-green-800'
-                  : sale.status === 'ANULADA'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-amber-100 text-amber-900'
-              }
-            >
-              {sale.status}
-            </Badge>
-            {sale.status !== 'ANULADA' && (
-              <DeliveryBadge status={sale.deliveryStatus} />
-            )}
-          </div>
+      <PageContainer>
+        <div>
+          <Link
+            href="/ventas"
+            className="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800"
+          >
+            <ArrowLeft className="size-4" />
+            Ventas
+          </Link>
+          <PageHeader
+            title={sale.customer?.name ?? 'Venta'}
+            description={
+              <>
+                {formatDateTime(sale.createdAt)}
+                {sale.agentName ? ` · ${sale.agentName}` : ''}
+                {' · '}
+                {sale.priceRef === 'REF_USD' ? 'Precio divisas' : 'Precio bolívares'}
+              </>
+            }
+            actions={
+              <>
+                <StatusBadge status={sale.status} />
+                {sale.status !== 'ANULADA' && (
+                  <DeliveryBadge status={sale.deliveryStatus} />
+                )}
+              </>
+            }
+          />
         </div>
-      </div>
-
-      <div className="mx-auto max-w-2xl space-y-6 p-4">
         <div className="rounded-lg border border-gray-200 bg-white p-5 text-center">
           <p className="text-sm text-gray-500">
             {sale.status === 'PAGADA'
@@ -174,7 +200,7 @@ export default function VentaDetailPage() {
                 ? 'Anulada'
                 : 'Saldo pendiente'}
           </p>
-          <p className="mt-1 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5 text-3xl font-semibold tabular-nums text-gray-900 sm:text-4xl">
+          <p className="mt-1 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5 tabular-nums text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
             {sale.status === 'PAGADA' ? (
               <span>{formatUsd(0)}</span>
             ) : (
@@ -224,7 +250,7 @@ export default function VentaDetailPage() {
         )}
 
         <section>
-          <h2 className="mb-2 text-sm font-medium text-gray-700">Ítems</h2>
+          <h2 className="mb-2 text-lg font-medium text-gray-900">Ítems</h2>
           <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
             {sale.items.map((it) => (
               <li
@@ -240,7 +266,7 @@ export default function VentaDetailPage() {
                   )}
                   <span className="ml-2 text-gray-400">×{it.quantity}</span>
                 </div>
-                <span className="tabular-nums text-gray-900">
+                <span className="tabular-nums text-sm text-gray-900">
                   {formatUsd(it.subtotalUsd)}
                 </span>
               </li>
@@ -250,7 +276,7 @@ export default function VentaDetailPage() {
             <p className="mt-2 text-xs text-gray-500">
               {undelivered
                 ? 'Reservado: el stock sigue en inventario hasta que marques la entrega.'
-                : `Entregada ${new Date(sale.deliveredAt!).toLocaleString('es')}${
+                : `Entregada ${formatDateTime(sale.deliveredAt!)}${
                     sale.deliveredBy ? ` · ${sale.deliveredBy}` : ''
                   }`}
             </p>
@@ -258,21 +284,23 @@ export default function VentaDetailPage() {
         </section>
 
         <section>
-          <h2 className="mb-2 text-sm font-medium text-gray-700">Pagos</h2>
-          <PaymentTimeline payments={sale.payments} />
+          <h2 className="mb-2 text-lg font-medium text-gray-900">Pagos</h2>
+          <PaymentTimeline payments={sale.payments} onSaleUpdated={setSale} />
         </section>
 
         <div className="flex flex-wrap gap-2">
           {canPay && (
-            <Button onClick={() => setPayOpen(true)}>Registrar pago</Button>
+            <Button variant="primary" onClick={() => setPayOpen(true)}>
+              Registrar pago
+            </Button>
           )}
           {canDeliver && (
             <Button
               variant="outline"
               disabled={delivering}
-              onClick={() => void handleDeliver()}
+              onClick={() => setConfirm('deliver')}
             >
-              {delivering ? 'Entregando…' : 'Marcar entregada'}
+              Marcar entregada
             </Button>
           )}
           {canEdit && (
@@ -287,10 +315,10 @@ export default function VentaDetailPage() {
             <Button
               variant="outline"
               disabled={voiding}
-              onClick={() => void handleVoid()}
+              onClick={() => setConfirm('void')}
               className="text-red-700"
             >
-              {voiding ? 'Anulando…' : 'Anular venta'}
+              Anular venta
             </Button>
           )}
           {canUndeliver && (
@@ -298,14 +326,14 @@ export default function VentaDetailPage() {
               variant="ghost"
               size="sm"
               disabled={delivering}
-              onClick={() => void handleUndeliver()}
+              onClick={() => setConfirm('undeliver')}
               className="text-gray-500"
             >
               Revertir entrega
             </Button>
           )}
         </div>
-      </div>
+      </PageContainer>
 
       <PaymentDialog
         open={payOpen}
@@ -314,6 +342,28 @@ export default function VentaDetailPage() {
         rateHistory={rateHistory}
         onOpenChange={setPayOpen}
         onSaved={setSale}
+      />
+
+      <ConfirmDialog
+        open={confirm !== null}
+        title={confirm ? CONFIRM_COPY[confirm].title : ''}
+        description={
+          confirm === 'void'
+            ? sale.deliveryStatus === 'ENTREGADA'
+              ? '¿Anular esta venta? Se devolverá el stock entregado.'
+              : '¿Anular esta venta? Se liberará el stock reservado.'
+            : confirm === 'deliver'
+              ? '¿Marcar como entregada? Se descontará el stock físico.'
+              : '¿Revertir la entrega? El stock vuelve al inventario.'
+        }
+        confirmLabel={confirm ? CONFIRM_COPY[confirm].confirmLabel : undefined}
+        loadingLabel={confirm ? CONFIRM_COPY[confirm].loadingLabel : undefined}
+        destructive={confirm ? CONFIRM_COPY[confirm].destructive : true}
+        loading={voiding || delivering}
+        onOpenChange={(open) => {
+          if (!open && !voiding && !delivering) setConfirm(null)
+        }}
+        onConfirm={() => void handleConfirmAction()}
       />
     </div>
   )

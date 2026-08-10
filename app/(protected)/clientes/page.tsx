@@ -1,12 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
 import { Pencil, Plus, Users } from 'lucide-react'
 import type { Customer } from '@/types'
 import { useApi } from '@/hooks/useApi'
+import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PageContainer, PageHeader } from '@/components/ui/page-header'
+import { TableSkeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 import { CustomerFormDialog } from '@/components/clientes/CustomerFormDialog'
 import { formatCedulaDisplay } from '@/lib/ve/cedula'
 import { formatPhoneDisplay } from '@/lib/ve/phone'
@@ -30,7 +33,7 @@ export default function ClientesPage() {
       const rows = await api.getCustomers(debounced || undefined)
       setCustomers(rows)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error cargando clientes')
+      notify.error(err instanceof Error ? err.message : 'Error cargando clientes')
     } finally {
       setLoading(false)
     }
@@ -63,39 +66,40 @@ export default function ClientesPage() {
 
   return (
     <div className="flex h-full flex-col overflow-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-violet-600" />
-          <h1 className="text-lg font-semibold text-gray-900">Clientes</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            className="h-9 w-56"
-            placeholder="Buscar cédula o nombre…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <Button type="button" size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Nuevo
-          </Button>
-        </div>
-      </div>
+      <PageContainer>
+        <PageHeader
+          title="Clientes"
+          actions={
+            <>
+              <Input
+                className="h-8 w-56"
+                placeholder="Buscar cédula o nombre…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <Button type="button" variant="primary" onClick={openCreate}>
+                <Plus className="size-4" />
+                Nuevo
+              </Button>
+            </>
+          }
+        />
 
-      <div className="mx-auto w-full max-w-4xl space-y-4 p-4">
         {loading ? (
-          <p className="text-sm text-gray-500">Cargando…</p>
+          <TableSkeleton rows={6} />
         ) : customers.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center">
-            <p className="text-sm text-gray-500">
-              {debounced
+          <EmptyState
+            icon={Users}
+            title={
+              debounced
                 ? `Sin resultados para “${debounced}”.`
-                : 'No hay clientes todavía.'}
-            </p>
-            <Button type="button" className="mt-3" size="sm" onClick={openCreate}>
+                : 'No hay clientes todavía.'
+            }
+          >
+            <Button type="button" variant="primary" onClick={openCreate}>
               Registrar cliente
             </Button>
-          </div>
+          </EmptyState>
         ) : (
           <ul className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
             {customers.map((c) => (
@@ -120,14 +124,14 @@ export default function ClientesPage() {
                   variant="outline"
                   onClick={() => openEdit(c)}
                 >
-                  <Pencil className="h-4 w-4" />
+                  <Pencil className="size-4" />
                   Editar
                 </Button>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </PageContainer>
 
       <CustomerFormDialog
         open={formOpen}

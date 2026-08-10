@@ -27,6 +27,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import { useApi } from '@/hooks/useApi'
+import { formatUsd as fmtUsd } from '@/lib/ventas/money'
 import { MovementHistory } from './MovementHistory'
 
 /** Alert when stored implicit gap drifts > 5pp from live market gap. */
@@ -62,8 +63,7 @@ function tierCount(product: Product): number {
 }
 
 function formatUsd(amount: number | null): string {
-  if (amount == null) return '—'
-  return `$${amount.toFixed(2)}`
+  return amount == null ? '—' : fmtUsd(amount)
 }
 
 function gapDrift(product: Product, liveGap: number | null): number | null {
@@ -207,7 +207,7 @@ export function ProductTable({
   const [expanded, setExpanded] = useState<string | null>(null)
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+    <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
       <Table className="min-w-215 table-fixed">
         <TableHeader>
           <TableRow className="bg-gray-50/80">
@@ -269,12 +269,12 @@ export function ProductTable({
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="py-1.5 tabular-nums">
+                  <TableCell className="py-1.5 tabular-nums text-sm">
                     {formatUsd(
                       p.purchasePriceUsd != null ? Number(p.purchasePriceUsd) : null,
                     )}
                   </TableCell>
-                  <TableCell className="py-1.5 tabular-nums">
+                  <TableCell className="py-1.5 tabular-nums text-sm">
                     <div className="flex flex-col">
                       <span>{formatUsd(amountFor(p, 'REF_USD'))}</span>
                       {tierCount(p) > 1 && (
@@ -285,7 +285,7 @@ export function ProductTable({
                     </div>
                   </TableCell>
                   <TableCell className="whitespace-normal py-1.5">
-                    <div className="flex flex-wrap items-center gap-1 tabular-nums">
+                    <div className="flex flex-wrap items-center gap-1 tabular-nums text-sm">
                       {formatUsd(amountFor(p, 'REF_BS'))}
                       {alert && (
                         <Badge
@@ -316,7 +316,7 @@ export function ProductTable({
                         aria-label="Ajustar stock"
                         title="Ajustar stock"
                       >
-                        <SlidersHorizontal className="size-3.5" />
+                        <SlidersHorizontal className="size-4" />
                       </Button>
                       <Button
                         type="button"
@@ -325,7 +325,7 @@ export function ProductTable({
                         onClick={() => onEdit(p)}
                         aria-label="Editar"
                       >
-                        <Pencil className="size-3.5" />
+                        <Pencil className="size-4" />
                       </Button>
                     </div>
                   </TableCell>

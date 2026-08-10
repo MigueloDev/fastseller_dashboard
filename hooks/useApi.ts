@@ -5,6 +5,7 @@ import { useAuth } from '@clerk/nextjs'
 import { api } from '@/lib/api'
 import type {
   CreateCustomerPayload,
+  CreateDeliveryNotePayload,
   CreateMovementPayload,
   CreatePaymentPayload,
   CreateSalePayload,
@@ -127,6 +128,12 @@ export function useApi() {
     getPaymentReceiptUrl: (paymentId: string) =>
       withToken(token => api.getPaymentReceiptUrl(token, paymentId)),
 
+    putPaymentReceipt: (paymentId: string, data: { receiptBase64: string }) =>
+      withToken(token => api.putPaymentReceipt(token, paymentId, data)),
+
+    deletePaymentReceipt: (paymentId: string) =>
+      withToken(token => api.deletePaymentReceipt(token, paymentId)),
+
     voidSale: (saleId: string) =>
       withToken(token => api.voidSale(token, saleId)),
 
@@ -135,6 +142,24 @@ export function useApi() {
 
     undeliverSale: (saleId: string) =>
       withToken(token => api.undeliverSale(token, saleId)),
+
+    getDeliveryNotes: (params?: {
+      status?: string
+      customerId?: string
+      from?: string
+      to?: string
+      limit?: number
+      offset?: number
+    }) => withToken(token => api.getDeliveryNotes(token, params)),
+
+    getDeliveryNote: (id: string) =>
+      withToken(token => api.getDeliveryNote(token, id)),
+
+    createDeliveryNote: (data: CreateDeliveryNotePayload) =>
+      withToken(token => api.createDeliveryNote(token, data)),
+
+    voidDeliveryNote: (id: string) =>
+      withToken(token => api.voidDeliveryNote(token, id)),
 
     getReceivables: () => withToken(token => api.getReceivables(token)),
 
@@ -147,6 +172,7 @@ export function useApi() {
       status?: string
       delivery?: string
       customerId?: string
+      paymentState?: string
     }) => withToken(token => api.getSalesReport(token, params)),
 
     getKardex: (params: {

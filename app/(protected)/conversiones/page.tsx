@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import toast from 'react-hot-toast'
+import { notify as toast } from '@/lib/toast'
 import { ArrowLeftRight, Plus } from 'lucide-react'
 import type {
   CurrencyPurchase,
@@ -15,16 +15,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ReceiptViewerDialog } from '@/components/ventas/ReceiptViewerDialog'
-import { formatUsd } from '@/lib/ventas/money'
+import { formatBs, formatUsd } from '@/lib/ventas/money'
+import { formatDate, formatDateTime } from '@/lib/format'
 import { fileToWebpBase64 } from '@/lib/ventas/receiptImage'
 import { cn } from '@/lib/utils'
 
 const RECEIPT_MAX_BYTES = 5 * 1024 * 1024
 const RECEIPT_ACCEPT = 'image/jpeg,image/png,image/webp'
-
-function formatBs(n: number) {
-  return `Bs ${n.toLocaleString('es-VE', { maximumFractionDigits: 2 })}`
-}
 
 function formatUsdt(n: number) {
   return `${n.toLocaleString('en-US', { maximumFractionDigits: 6 })} USDT`
@@ -311,7 +308,7 @@ export default function ConversionesPage() {
         </Button>
       </div>
 
-      <div className="mx-auto w-full max-w-3xl space-y-4 p-4">
+      <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
         <SummaryCards summary={summary} loading={loading} />
 
         {formOpen && (
@@ -356,10 +353,7 @@ export default function ConversionesPage() {
                               {s.usdCollected > 0
                                 ? ` + ${formatUsd(s.usdCollected)}`
                                 : ''}{' '}
-                              ·{' '}
-                              {new Date(s.createdAt).toLocaleDateString('es', {
-                                dateStyle: 'short',
-                              })}
+                              · {formatDate(s.createdAt)}
                             </span>
                           </span>
                         </label>
@@ -549,10 +543,7 @@ export default function ConversionesPage() {
                       {purchaseTitle(p)}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {new Date(p.purchasedAt).toLocaleString('es', {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
+                      {formatDateTime(p.purchasedAt)}
                       {p.agentName ? ` · ${p.agentName}` : ''}
                       {' · '}
                       tasa {p.binanceRate}
@@ -571,7 +562,7 @@ export default function ConversionesPage() {
                     )}
                   </div>
                   <div className="text-right text-sm">
-                    <p className="tabular-nums text-gray-900">
+                    <p className="font-bold tabular-nums text-gray-900">
                       {formatUsdt(p.usdtReceived)}
                     </p>
                     <p className="text-xs text-gray-500 tabular-nums">

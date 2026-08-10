@@ -41,7 +41,7 @@ function Field({
       </Label>
       <div className="relative flex items-center">
         {prefix && (
-          <span className="absolute left-2.5 text-muted-foreground font-mono text-sm select-none z-10">
+          <span className="absolute left-2.5 text-muted-foreground text-sm select-none z-10">
             {prefix}
           </span>
         )}
@@ -51,13 +51,13 @@ function Field({
           onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
           placeholder={placeholder ?? "0"}
           className={cn(
-            "font-mono tabular-nums",
+            "tabular-nums",
             prefix && "pl-7",
             suffix && "pr-8"
           )}
         />
         {suffix && (
-          <span className="absolute right-2.5 text-muted-foreground font-mono text-sm select-none">
+          <span className="absolute right-2.5 text-muted-foreground text-sm select-none">
             {suffix}
           </span>
         )}

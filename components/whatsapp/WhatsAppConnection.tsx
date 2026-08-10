@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
+import { notify as toast } from '@/lib/toast'
 import { QRCodeSVG } from 'qrcode.react'
 import { Loader2, LogOut, Smartphone } from 'lucide-react'
 import type { WhatsAppState } from '@/types'

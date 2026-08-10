@@ -12,8 +12,8 @@ Al cambiar rutas, auth, contrato inbox o env, actualizar este archivo **y** el o
 | Item | Valor |
 |------|--------|
 | Stack | Next.js 15 App Router + React 19 + TypeScript |
-| Producto | Dashboard VictoriaLeads (inbox + productos/inventario + ventas + reportes + calculadora) |
-| Features | `/` (home métricas), `/inbox`, `/inbox/[jid]`, `/productos`, `/ventas` (+ `/nueva`, `/[id]/editar`), `/clientes`, `/reportes` (+ `/ventas`, `/kardex`, `/movimientos`), `/conversiones` (compra USDT multi-venta), `/calculadora` |
+| Producto | Dashboard VictoriaLeads (inbox + productos/inventario + ventas + entregas + reportes + calculadora) |
+| Features | `/` (home métricas), `/inbox`, `/inbox/[jid]`, `/productos`, `/ventas` (+ `/nueva`, `/[id]/editar`), `/entregas` (+ `/nueva`, `/[id]/imprimir`), `/clientes`, `/reportes` (+ `/ventas`, `/kardex`, `/movimientos`), `/conversiones` (compra USDT multi-venta), `/calculadora` |
 | Placeholders | `/scouting` |
 
 ---
@@ -45,10 +45,15 @@ Scripts: `dev`, `build`, `start`, `lint`, `test`.
 |-------------------|------------|
 | `app/globals.css` | Tailwind 4, tokens oklch, `@theme inline`, dark preparado pero inactivo |
 | `components.json` | Config shadcn `base-nova` |
-| `components/ui/*` | Primitivos shadcn (incl. Card, Alert) |
+| `components/ui/*` | Primitivos shadcn (Card, Alert…) + patrones propios: `page-header` (`PageContainer`/`PageHeader`), `status-badge`, `skeleton` (`Skeleton`/`TableSkeleton`), `empty-state`, `confirm-dialog` |
 | `lib/utils.ts` | `cn()` = `twMerge(clsx(...))` |
+| `lib/toast.ts` | `notify` — wrapper de react-hot-toast (una sola notificación visible; bottom-right 4s vía `ToastProvider`) |
+| `lib/ventas/money.ts` | `formatUsd` (`$ 1.234,56`) / `formatBs` (`Bs. 1.234,56`) en `es-VE` + métodos de pago |
+| `lib/format.ts` | `formatDate` / `formatDateTime` (`dd/MM/yyyy[, HH:mm]`, `America/Caracas`) |
 | `app/layout.tsx` | Geist + Geist Mono, `ClerkProvider`, `ToastProvider` |
 | `postcss.config.mjs` | Plugin `@tailwindcss/postcss` |
+
+Convenciones UI (layout, tipografía, semánticos, formularios): `CLAUDE.md`. Excepciones de layout: `/inbox` y `/entregas/[id]/imprimir`.
 
 Dark mode: tokens existen; **no hay** toggle. Light only.
 
@@ -83,9 +88,13 @@ Dark mode: tokens existen; **no hay** toggle. Light only.
 | `/ventas/nueva` | `app/(protected)/ventas/nueva/page.tsx` | Crear venta |
 | `/ventas/[id]` | `app/(protected)/ventas/[id]/page.tsx` | Detalle + pagos + editar/anular |
 | `/ventas/[id]/editar` | `app/(protected)/ventas/[id]/editar/page.tsx` | Editar venta (`SaleForm`) |
+| `/entregas` | `app/(protected)/entregas/page.tsx` | Lista notas de entrega; filtro status |
+| `/entregas/nueva` | `app/(protected)/entregas/nueva/page.tsx` | Crear nota (`showValue` + líneas); descuenta stock |
+| `/entregas/[id]` | `app/(protected)/entregas/[id]/page.tsx` | Detalle + anular |
+| `/entregas/[id]/imprimir` | `app/(protected)/entregas/[id]/imprimir/page.tsx` | Documento + `window.print` (PDF del browser) |
 | `/clientes` | `app/(protected)/clientes/page.tsx` | Listado + búsqueda + crear/editar (nav desktop) |
 | `/reportes` | `app/(protected)/reportes/page.tsx` | Redirect → `/reportes/ventas`; `layout.tsx` con tabs |
-| `/reportes/ventas` | `app/(protected)/reportes/ventas/page.tsx` | Reporte de ventas por rango + filtros estado/entrega + totales + CSV |
+| `/reportes/ventas` | `app/(protected)/reportes/ventas/page.tsx` | Reporte de ventas por rango + filtros estado/entrega/cobro + buckets Pagadas/Abonadas/A crédito + CSV |
 | `/reportes/kardex` | `app/(protected)/reportes/kardex/page.tsx` | Kardex por producto/variante con saldo corrido + CSV |
 | `/reportes/movimientos` | `app/(protected)/reportes/movimientos/page.tsx` | Ledger plano por producto (todas las variantes) + CSV; `?productId=` |
 | `/calculadora` | `app/(protected)/calculadora/page.tsx` | ImportCalc VE (`GET /rates`) |
@@ -119,6 +128,7 @@ flowchart TD
   inbox["/inbox + /inbox/jid"]
   productos["/productos"]
   ventas["/ventas"]
+  entregas["/entregas"]
   clientes["/clientes"]
   calc["/calculadora"]
   stubs["/scouting /conversiones"]
@@ -130,6 +140,7 @@ flowchart TD
   shell --> inboxLayout --> inbox
   shell --> productos
   shell --> ventas
+  shell --> entregas
   shell --> clientes
   shell --> calc
   shell --> stubs
@@ -183,7 +194,7 @@ Una venta sin entregar **reserva** stock en vez de descontarlo: `quantity` es el
 | `components/ventas/PriceModeSelector.tsx` | REF_USD / REF_BS |
 | `components/ventas/SaleLineItem.tsx` | Línea producto/variante/qty/precio editable |
 | `components/ventas/PaymentDialog.tsx` | Registrar abono (+ comprobante opcional → WebP) |
-| `components/ventas/PaymentTimeline.tsx` | Historial pagos (+ “Ver comprobante” en modal) |
+| `components/ventas/PaymentTimeline.tsx` | Historial pagos (Ver / Cambiar / Eliminar / Adjuntar comprobante) |
 | `components/ventas/ReceiptViewerDialog.tsx` | Modal de imagen firmada (pagos + compras USDT) |
 | `components/ventas/DeliveryBadge.tsx` | Badge Por entregar / Entregada (lista + detalle) |
 | `components/ventas/ReceivablesCard.tsx` | CxC en listado |
@@ -191,17 +202,37 @@ Una venta sin entregar **reserva** stock en vez de descontarlo: `quantity` es el
 | `lib/ventas/money.ts` | Formatos + métodos de pago + `priceOf(qty)` / `qtyByProduct` |
 | `lib/ventas/receiptImage.ts` | Conversión JPEG/PNG/WebP → WebP (canvas, calidad 80 %) |
 
+### Módulo entregas (notas de entrega)
+
+Independiente de ventas: al crear descuenta stock (`POST /delivery-notes`). Toggle **Mostrar valores** (`showValue`): si está off, list/detalle/impresión ocultan precios (montos siguen en DB).
+
+| Path | Rol |
+|------|-----|
+| `app/(protected)/entregas/page.tsx` | Lista + filtro status + link imprimir |
+| `app/(protected)/entregas/nueva/page.tsx` | Wrapper `DeliveryNoteForm` |
+| `app/(protected)/entregas/[id]/page.tsx` | Detalle + anular |
+| `app/(protected)/entregas/[id]/imprimir/page.tsx` | Vista limpia + botón Imprimir / Guardar PDF |
+| `components/entregas/DeliveryNoteForm.tsx` | Cliente + `showValue` + líneas |
+| `components/entregas/DeliveryNoteLineItem.tsx` | Línea producto/variante/qty/(precio si showValue) |
+| `components/entregas/DeliveryNotePrint.tsx` | Documento imprimible (precios condicionales) |
+| `lib/api.ts` / `hooks/useApi.ts` | `getDeliveryNotes` / `getDeliveryNote` / `createDeliveryNote` / `voidDeliveryNote` |
+| `types/index.ts` | `DeliveryNote*`, `DeliveryNoteStatus`, `CreateDeliveryNotePayload` |
+
+Nav: **Entregas** en desktop; tab móvil. Shell con `print:hidden` para que la ruta `/imprimir` salga limpia.
+
 ### Módulo reportes
 
 | Path | Rol |
 |------|-----|
 | `app/(protected)/reportes/layout.tsx` | Header + tabs Ventas / Kardex / Movimientos |
 | `app/(protected)/reportes/page.tsx` | Redirect a `/reportes/ventas` |
-| `app/(protected)/reportes/ventas/page.tsx` | Totales + tabla de ventas + por producto + CSV |
+| `app/(protected)/reportes/ventas/page.tsx` | Cards cobro (vendidas/pagadas/abonadas/crédito) + filtro cobro + tabla + lista a crédito + por producto + CSV |
 | `app/(protected)/reportes/kardex/page.tsx` | Selector producto/variante + tabla con saldo corrido + CSV |
 | `app/(protected)/reportes/movimientos/page.tsx` | Selector producto + ledger plano (todas las variantes) + CSV |
 | `components/reportes/ReportRange.tsx` | `PeriodTabs` + rango manual con `<input type="date">`; exporta `rangeQuery` / `rangeLabel` |
 | `lib/reports/csv.ts` | `toCsv` / `downloadCsv` (BOM para Excel) / `csvDateTime` — sin librerías |
+
+Estado de cobro (derivado, no enum DB): **Pagada** / **Abonada** (PENDIENTE con pagos) / **A crédito** (PENDIENTE sin pagos). El CSV concatena bloques `Cobro` (`byPaymentState`) y `Productos vendidos` (`byProduct`).
 
 El rango manual manda sobre el tab de período; limpiarlo vuelve al tab.
 

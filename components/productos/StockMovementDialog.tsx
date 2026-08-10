@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
+import { notify as toast } from '@/lib/toast'
 import { Plus, Trash2 } from 'lucide-react'
 import type {
   CreateMovementPayload,

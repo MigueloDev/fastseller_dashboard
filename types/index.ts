@@ -70,6 +70,7 @@ export interface StockMovement {
   productId: string
   variantId: string | null
   saleId?: string | null
+  deliveryNoteId?: string | null
   type: MovementType
   quantity: number
   delta: number
@@ -234,6 +235,9 @@ export type SaleStatus = 'PENDIENTE' | 'PAGADA' | 'ANULADA'
 /** POR_ENTREGAR reserva stock; ENTREGADA ya descontó el físico (SALIDA en el ledger). */
 export type DeliveryStatus = 'POR_ENTREGAR' | 'ENTREGADA'
 
+/** Derivado: PAGADA=status; ABONADA=PENDIENTE con pagos; CREDITO=PENDIENTE sin pagos. */
+export type PaymentState = 'PAGADA' | 'ABONADA' | 'CREDITO'
+
 export type PaymentMethod =
   | 'EFECTIVO_USD'
   | 'ZELLE'
@@ -348,6 +352,56 @@ export interface CreateSalePayload {
   note?: string | null
 }
 
+export type DeliveryNoteStatus = 'ACTIVA' | 'ANULADA'
+
+export interface DeliveryNoteItem {
+  id: string
+  deliveryNoteId: string
+  productId: string
+  variantId: string | null
+  quantity: number
+  unitPriceUsd: number
+  subtotalUsd: number
+  product?: { id: string; name: string; sku: string | null; active: boolean }
+  variant?: { id: string; name: string; sku: string | null; active: boolean } | null
+}
+
+export interface DeliveryNote {
+  id: string
+  number: number
+  customerId: string
+  showValue: boolean
+  status: DeliveryNoteStatus
+  note: string | null
+  agentName: string | null
+  totalUsd: number
+  createdAt: string
+  updatedAt: string
+  voidedAt: string | null
+  voidedBy: string | null
+  customer: Customer
+  items: DeliveryNoteItem[]
+}
+
+export interface DeliveryNotesPage {
+  items: DeliveryNote[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface CreateDeliveryNotePayload {
+  customerId: string
+  showValue?: boolean
+  items: Array<{
+    productId: string
+    variantId?: string | null
+    quantity: number
+    unitPriceUsd?: number
+  }>
+  note?: string | null
+}
+
 export interface CreatePaymentPayload {
   method: PaymentMethod
   amount: number
@@ -374,6 +428,14 @@ export interface ReceivablesResponse {
 export interface MetricsBucket {
   count: number
   totalUsd: number
+}
+
+export interface PaymentStateBucket {
+  count: number
+  unitsSold: number
+  totalUsd: number
+  collectedUsd: number
+  balanceUsd: number
 }
 
 export interface MetricsTopProduct {
@@ -422,6 +484,7 @@ export interface SalesReportItem {
   collectedUsd: number
   balanceUsd: number
   paymentsCount: number
+  paymentState: PaymentState | null
   note: string | null
   agentName: string | null
 }
@@ -432,10 +495,12 @@ export interface SalesReport {
     status: SaleStatus | null
     delivery: DeliveryStatus | null
     customerId: string | null
+    paymentState: PaymentState | null
   }
   totals: {
     count: number
     voidedCount: number
+    unitsSold: number
     totalUsd: number
     collectedUsd: number
     collectedCount: number
@@ -447,6 +512,11 @@ export interface SalesReport {
   }
   byPriceRef: { REF_USD: MetricsBucket; REF_BS: MetricsBucket }
   byDelivery: { POR_ENTREGAR: MetricsBucket; ENTREGADA: MetricsBucket }
+  byPaymentState: {
+    PAGADA: PaymentStateBucket
+    ABONADA: PaymentStateBucket
+    CREDITO: PaymentStateBucket
+  }
   byProduct: MetricsTopProduct[]
   sales: SalesReportItem[]
 }

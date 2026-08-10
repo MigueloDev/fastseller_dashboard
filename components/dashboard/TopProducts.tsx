@@ -18,7 +18,7 @@ export function TopProducts({ products, period }: Props) {
   if (products.length === 0) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <p className="text-sm font-medium text-gray-900">Más vendido</p>
+        <p className="text-lg font-medium text-gray-900">Más vendido</p>
         <p className="mt-2 text-sm text-gray-500">
           Sin ventas en este período
         </p>
@@ -31,14 +31,15 @@ export function TopProducts({ products, period }: Props) {
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+      <p className="text-lg font-medium text-gray-900">
         Más vendido ({PERIOD_LABELS[period].toLowerCase()})
       </p>
       <p className="mt-2 text-lg font-semibold text-gray-900">
         {displayName(top)}
       </p>
       <p className="mt-0.5 text-sm text-gray-500">
-        {top.unitsSold} unidades · {formatUsd(top.revenueUsd)}
+        {top.unitsSold} unidades ·{' '}
+        <span className="tabular-nums">{formatUsd(top.revenueUsd)}</span>
       </p>
 
       {rest.length > 0 && (
@@ -52,7 +53,8 @@ export function TopProducts({ products, period }: Props) {
                     {displayName(p)}
                   </span>
                   <span className="shrink-0 text-gray-500">
-                    {p.unitsSold} u · {formatUsd(p.revenueUsd)}
+                    {p.unitsSold} u ·{' '}
+                    <span className="tabular-nums">{formatUsd(p.revenueUsd)}</span>
                   </span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">

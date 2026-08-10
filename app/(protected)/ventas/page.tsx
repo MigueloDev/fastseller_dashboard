@@ -3,7 +3,6 @@
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import toast from 'react-hot-toast'
 import { Plus, ShoppingCart, UserPen } from 'lucide-react'
 import type {
   Customer,
@@ -13,12 +12,17 @@ import type {
   SaleStatus,
 } from '@/types'
 import { useApi } from '@/hooks/useApi'
-import { Badge } from '@/components/ui/badge'
+import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
+import { PageContainer, PageHeader } from '@/components/ui/page-header'
+import { TableSkeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { ReceivablesCard } from '@/components/ventas/ReceivablesCard'
 import { DeliveryBadge } from '@/components/ventas/DeliveryBadge'
 import { CustomerFormDialog } from '@/components/clientes/CustomerFormDialog'
 import { balanceLabel, formatUsd } from '@/lib/ventas/money'
+import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const STATUS_VALUES: SaleStatus[] = ['PENDIENTE', 'PAGADA', 'ANULADA']
@@ -29,24 +33,10 @@ function parseStatusParam(raw: string | null): SaleStatus | '' {
 }
 
 function statusBadge(sale: Sale) {
-  if (sale.status === 'PAGADA') {
-    return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Pagada</Badge>
+  if (sale.status === 'PENDIENTE' && sale.payments.length > 0) {
+    return <StatusBadge status="ABONADA" />
   }
-  if (sale.status === 'ANULADA') {
-    return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Anulada</Badge>
-  }
-  const hasPayments = sale.payments.length > 0
-  return (
-    <Badge
-      className={cn(
-        hasPayments
-          ? 'bg-amber-100 text-amber-900 hover:bg-amber-100'
-          : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',
-      )}
-    >
-      {hasPayments ? 'Abonada' : 'Pendiente'}
-    </Badge>
-  )
+  return <StatusBadge status={sale.status} />
 }
 
 function VentasPageInner() {
@@ -79,7 +69,7 @@ function VentasPageInner() {
       setSales(page.items)
       setReceivables(recv)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error cargando ventas')
+      notify.error(err instanceof Error ? err.message : 'Error cargando ventas')
     } finally {
       setLoading(false)
     }
@@ -105,56 +95,52 @@ function VentasPageInner() {
 
   return (
     <div className="flex h-full flex-col overflow-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
-        <div className="flex items-center gap-2">
-          <ShoppingCart className="h-5 w-5 text-violet-600" />
-          <h1 className="text-lg font-semibold text-gray-900">Ventas</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as SaleStatus | '')}
-          >
-            <option value="">Todas</option>
-            <option value="PENDIENTE">Pendientes</option>
-            <option value="PAGADA">Pagadas</option>
-            <option value="ANULADA">Anuladas</option>
-          </select>
-          <select
-            className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
-            value={delivery}
-            onChange={(e) => setDelivery(e.target.value as DeliveryStatus | '')}
-          >
-            <option value="">Toda entrega</option>
-            <option value="POR_ENTREGAR">Por entregar</option>
-            <option value="ENTREGADA">Entregadas</option>
-          </select>
-          <Link
-            href="/ventas/nueva"
-            className="inline-flex h-8 items-center gap-1 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground"
-          >
-            <Plus className="h-4 w-4" />
-            Nueva
-          </Link>
-        </div>
-      </div>
+      <PageContainer>
+        <PageHeader
+          title="Ventas"
+          actions={
+            <>
+              <select
+                className="h-8 rounded-md border border-gray-200 bg-white px-2 text-sm"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as SaleStatus | '')}
+              >
+                <option value="">Todas</option>
+                <option value="PENDIENTE">Pendientes</option>
+                <option value="PAGADA">Pagadas</option>
+                <option value="ANULADA">Anuladas</option>
+              </select>
+              <select
+                className="h-8 rounded-md border border-gray-200 bg-white px-2 text-sm"
+                value={delivery}
+                onChange={(e) => setDelivery(e.target.value as DeliveryStatus | '')}
+              >
+                <option value="">Toda entrega</option>
+                <option value="POR_ENTREGAR">Por entregar</option>
+                <option value="ENTREGADA">Entregadas</option>
+              </select>
+              <Button
+                variant="primary"
+                render={<Link href="/ventas/nueva" />}
+              >
+                <Plus className="size-4" />
+                Nueva
+              </Button>
+            </>
+          }
+        />
 
-      <div className="mx-auto w-full max-w-4xl space-y-4 p-4">
         <ReceivablesCard data={receivables} loading={loading && !receivables} />
 
         {loading ? (
-          <p className="text-sm text-gray-500">Cargando…</p>
+          <TableSkeleton rows={6} />
         ) : sales.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center">
-            <p className="text-sm text-gray-500">No hay ventas todavía.</p>
-            <Link
-              href="/ventas/nueva"
-              className="mt-3 inline-flex h-8 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground"
-            >
+          <EmptyState icon={ShoppingCart} title="Aún no hay ventas registradas">
+            <Button variant="primary" render={<Link href="/ventas/nueva" />}>
+              <Plus className="size-4" />
               Crear primera venta
-            </Link>
-          </div>
+            </Button>
+          </EmptyState>
         ) : (
           <ul className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
             {sales.map((sale) => (
@@ -177,24 +163,21 @@ function VentasPageInner() {
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {new Date(sale.createdAt).toLocaleString('es', {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
+                      {formatDateTime(sale.createdAt)}
                       {sale.agentName ? ` · ${sale.agentName}` : ''}
                       {' · '}
                       {sale.priceRef === 'REF_USD' ? 'Divisas' : 'Bolívares'}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold tabular-nums text-gray-900">
+                    <p className="tabular-nums font-semibold text-gray-900">
                       {formatUsd(sale.totalUsd)}
                     </p>
                     {sale.status !== 'ANULADA' &&
                       (sale.profitUsd != null ? (
                         <p
                           className={cn(
-                            'text-xs tabular-nums',
+                            'tabular-nums text-xs',
                             sale.profitUsd >= 0
                               ? 'text-green-700'
                               : 'text-red-600',
@@ -209,7 +192,7 @@ function VentasPageInner() {
                         <p className="text-xs text-gray-400">Sin costo histórico</p>
                       ))}
                     {sale.status === 'PENDIENTE' && (
-                      <p className="text-xs text-amber-800">
+                      <p className="tabular-nums text-xs text-amber-800">
                         Falta{' '}
                         {balanceLabel(
                           sale.balanceUsd,
@@ -236,7 +219,7 @@ function VentasPageInner() {
             ))}
           </ul>
         )}
-      </div>
+      </PageContainer>
 
       <CustomerFormDialog
         open={customerFormOpen}

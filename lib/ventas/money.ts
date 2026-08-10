@@ -15,18 +15,18 @@ export const PAYMENT_METHOD_META: Record<
 
 export const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_META) as PaymentMethod[]
 
+// Formato venezolano: punto de miles, coma decimal (convención CLAUDE.md)
+const veMoney = new Intl.NumberFormat('es-VE', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
 export function formatUsd(n: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(n)
+  return `$ ${veMoney.format(n)}`
 }
 
 export function formatBs(n: number): string {
-  return `Bs ${new Intl.NumberFormat('es-VE', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n)}`
+  return `Bs. ${veMoney.format(n)}`
 }
 
 export function rateAgeLabel(fetchedAt: string | undefined | null): string {

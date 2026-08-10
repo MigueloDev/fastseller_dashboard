@@ -1,30 +1,22 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { ExchangeRateRow, ExchangeRates, Product } from '@/types'
+import type { Product } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { notify } from '@/lib/toast'
-import { SaleForm } from '@/components/ventas/SaleForm'
+import { DeliveryNoteForm } from '@/components/entregas/DeliveryNoteForm'
 import { Skeleton } from '@/components/ui/skeleton'
 
-export default function NuevaVentaPage() {
+export default function NuevaEntregaPage() {
   const api = useApi()
   const [products, setProducts] = useState<Product[]>([])
-  const [rates, setRates] = useState<ExchangeRates | null>(null)
-  const [rateHistory, setRateHistory] = useState<ExchangeRateRow[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     void (async () => {
       try {
-        const [prods, nextRates, history] = await Promise.all([
-          api.getProducts(false),
-          api.getRates().catch(() => null),
-          api.getRatesHistory().catch(() => ({ items: [] as ExchangeRateRow[] })),
-        ])
+        const prods = await api.getProducts(false)
         setProducts(prods)
-        setRates(nextRates)
-        setRateHistory(history.items)
       } catch (err) {
         notify.error(err instanceof Error ? err.message : 'Error cargando datos')
       } finally {
@@ -45,7 +37,7 @@ export default function NuevaVentaPage() {
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
-      <SaleForm products={products} rates={rates} rateHistory={rateHistory} />
+      <DeliveryNoteForm products={products} />
     </div>
   )
 }

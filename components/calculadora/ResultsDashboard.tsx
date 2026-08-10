@@ -2,18 +2,11 @@
 
 import type { Results } from "@/lib/calculadora/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatBs as fmtBs, formatUsd as fmtUsd } from "@/lib/ventas/money";
 import { cn } from "@/lib/utils";
 
 interface ResultsDashboardProps {
   results: Results;
-}
-
-function fmtUsd(v: number) {
-  return v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function fmtBs(v: number) {
-  return v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtPct(v: number) {
@@ -42,7 +35,7 @@ function Row({
       <td className="py-2 pr-4 text-xs text-muted-foreground">{label}</td>
       <td
         className={cn(
-          "py-2 text-right font-mono text-sm tabular-nums text-foreground",
+          "py-2 text-right text-sm tabular-nums text-foreground",
           valueClass
         )}
       >
@@ -94,21 +87,21 @@ export default function ResultsDashboard({ results }: ResultsDashboardProps) {
         <table className="w-full border-collapse">
           <tbody>
             <Divider label="Costos" />
-            <Row label="Costo por unidad" value={`$${fmtUsd(costPerUnitUsd)}`} />
-            <Row label="Costo total (lote)" value={`$${fmtUsd(totalCostUsd)}`} />
+            <Row label="Costo por unidad" value={`${fmtUsd(costPerUnitUsd)}`} />
+            <Row label="Costo total (lote)" value={`${fmtUsd(totalCostUsd)}`} />
             <Row
               label="Punto de equilibrio (nominal BCV)"
-              value={`Bs ${fmtBs(breakEvenNominal)}`}
+              value={`${fmtBs(breakEvenNominal)}`}
             />
             <Row
               label="Punto de equilibrio (real, recuperar $)"
-              value={`Bs ${fmtBs(breakEvenReal)}`}
+              value={`${fmtBs(breakEvenReal)}`}
               valueClass="text-violet-600"
             />
 
             <Divider label="Ingresos" />
-            <Row label="Precio de venta (USD)" value={`$${fmtUsd(salePriceUsd)}`} highlight />
-            <Row label="Precio de venta (Bs al BCV)" value={`Bs ${fmtBs(salePriceBs)}`} />
+            <Row label="Precio de venta (USD)" value={`${fmtUsd(salePriceUsd)}`} highlight />
+            <Row label="Precio de venta (Bs al BCV)" value={`${fmtBs(salePriceBs)}`} />
             <Row
               label="Margen nominal (BCV)"
               value={fmtPct(marginPctBcv)}
@@ -118,14 +111,14 @@ export default function ResultsDashboard({ results }: ResultsDashboardProps) {
             <Divider label="Recuperacion real en USD" />
             <Row
               label="Recompra USDT / unidad"
-              value={`$${fmtUsd(usdtPerUnit)}`}
+              value={`${fmtUsd(usdtPerUnit)}`}
               highlight
             />
-            <Row label="USDT invertido" value={`$${fmtUsd(usdtInvested)}`} />
-            <Row label="USDT recuperado" value={`$${fmtUsd(usdtRecoveredTotal)}`} />
+            <Row label="USDT invertido" value={`${fmtUsd(usdtInvested)}`} />
+            <Row label="USDT recuperado" value={`${fmtUsd(usdtRecoveredTotal)}`} />
             <Row
               label="Ganancia real (USD)"
-              value={`$${fmtUsd(realProfitUsd)}`}
+              value={`${fmtUsd(realProfitUsd)}`}
               valueClass={realProfitUsd >= 0 ? "text-green-700" : "text-red-600"}
             />
             <Row
@@ -154,7 +147,7 @@ export default function ResultsDashboard({ results }: ResultsDashboardProps) {
           </span>
           <span
             className={cn(
-              "font-mono text-2xl font-bold tabular-nums",
+              "text-2xl font-bold tabular-nums",
               marginColor(realMarginPct)
             )}
           >

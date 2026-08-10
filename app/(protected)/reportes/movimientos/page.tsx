@@ -3,12 +3,15 @@
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import toast from 'react-hot-toast'
-import { Download } from 'lucide-react'
-import type { MovementType, Product, ProductMovementsReport } from '@/types'
+import { Boxes, Download } from 'lucide-react'
+import type { Product, ProductMovementsReport } from '@/types'
 import { useApi } from '@/hooks/useApi'
-import { Badge } from '@/components/ui/badge'
+import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
+import { PageContainer } from '@/components/ui/page-header'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { TableSkeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 import {
   DEFAULT_RANGE,
   ReportRange,
@@ -16,13 +19,8 @@ import {
   rangeQuery,
   type RangeState,
 } from '@/components/reportes/ReportRange'
+import { formatDateTime } from '@/lib/format'
 import { csvDateTime, downloadCsv, toCsv } from '@/lib/reports/csv'
-
-const TYPE_STYLE: Record<MovementType, string> = {
-  ENTRADA: 'bg-green-50 text-green-800 border-green-200',
-  SALIDA: 'bg-red-50 text-red-700 border-red-200',
-  AJUSTE: 'bg-amber-50 text-amber-800 border-amber-200',
-}
 
 function ReporteMovimientosInner() {
   const api = useApi()
@@ -43,7 +41,7 @@ function ReporteMovimientosInner() {
         setProductId((prev) => prev || list[0]?.id || '')
       })
       .catch((err: unknown) => {
-        toast.error(err instanceof Error ? err.message : 'Error cargando productos')
+        notify.error(err instanceof Error ? err.message : 'Error cargando productos')
       })
   }, [api])
 
@@ -57,7 +55,7 @@ function ReporteMovimientosInner() {
       })
       setReport(data)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error cargando movimientos')
+      notify.error(err instanceof Error ? err.message : 'Error cargando movimientos')
       setReport(null)
     } finally {
       setLoading(false)
@@ -89,7 +87,7 @@ function ReporteMovimientosInner() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
+    <PageContainer wide>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ReportRange value={range} onChange={setRange} />
         <div className="flex flex-wrap items-center gap-2">
@@ -111,22 +109,23 @@ function ReporteMovimientosInner() {
             onClick={exportCsv}
             disabled={!report || report.movements.length === 0}
           >
-            <Download className="mr-1 h-4 w-4" />
+            <Download className="size-4" />
             CSV
           </Button>
         </div>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Cargando…</p>
+        <TableSkeleton rows={6} />
       ) : !report ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
-          Elige un producto para ver sus movimientos.
-        </div>
+        <EmptyState
+          icon={Boxes}
+          title="Elige un producto para ver sus movimientos."
+        />
       ) : (
         <section className="space-y-2">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-medium text-gray-700">
+            <h2 className="text-lg font-medium text-gray-900">
               {report.product.name}
               {report.product.sku ? (
                 <span className="ml-2 text-xs font-normal text-gray-500">
@@ -157,9 +156,10 @@ function ReporteMovimientosInner() {
           )}
 
           {report.movements.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
-              Sin movimientos en el período.
-            </div>
+            <EmptyState
+              icon={Boxes}
+              title="Sin movimientos en el período."
+            />
           ) : (
             <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
               <table className="w-full min-w-[36rem] text-sm">
@@ -177,12 +177,7 @@ function ReporteMovimientosInner() {
                   {report.movements.map((m) => (
                     <tr key={m.id} className="hover:bg-gray-50">
                       <td className="px-3 py-2">
-                        <Badge
-                          variant="secondary"
-                          className={`text-[10px] ${TYPE_STYLE[m.type]}`}
-                        >
-                          {m.type}
-                        </Badge>
+                        <StatusBadge status={m.type} />
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-xs">
                         {m.delta > 0 ? '+' : ''}
@@ -195,10 +190,7 @@ function ReporteMovimientosInner() {
                         {m.agentName ?? '—'}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-600">
-                        {new Date(m.createdAt).toLocaleString('es-VE', {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        })}
+                        {formatDateTime(m.createdAt)}
                       </td>
                       <td className="max-w-[14rem] truncate px-3 py-2 text-xs text-gray-500">
                         {m.saleId ? (
@@ -220,7 +212,7 @@ function ReporteMovimientosInner() {
           )}
         </section>
       )}
-    </div>
+    </PageContainer>
   )
 }
 
@@ -228,7 +220,9 @@ export default function ReporteMovimientosPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-4 text-sm text-gray-500">Cargando movimientos…</div>
+        <PageContainer wide>
+          <TableSkeleton rows={6} />
+        </PageContainer>
       }
     >
       <ReporteMovimientosInner />

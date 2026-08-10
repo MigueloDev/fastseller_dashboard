@@ -70,7 +70,7 @@ export default function RateDisplay({
               <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 BCV
               </span>
-              <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+              <span className="text-[10px] text-muted-foreground tabular-nums">
                 {formatTimestamp(bcvUpdatedAt)}
               </span>
             </div>
@@ -79,7 +79,7 @@ export default function RateDisplay({
               value={bcvRate || ""}
               onChange={(e) => onBcvChange(parseFloat(e.target.value) || 0)}
               placeholder="0.00"
-              className="border-0 bg-transparent px-0 h-auto text-lg font-mono tabular-nums shadow-none focus-visible:ring-0"
+              className="border-0 bg-transparent px-0 h-auto text-lg tabular-nums shadow-none focus-visible:ring-0"
             />
             <div className="text-[10px] text-muted-foreground mt-0.5">
               Bs / USD (oficial)
@@ -91,7 +91,7 @@ export default function RateDisplay({
               <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 Binance P2P
               </span>
-              <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+              <span className="text-[10px] text-muted-foreground tabular-nums">
                 {formatTimestamp(binanceUpdatedAt)}
               </span>
             </div>
@@ -100,7 +100,7 @@ export default function RateDisplay({
               value={binanceRate || ""}
               onChange={(e) => onBinanceChange(parseFloat(e.target.value) || 0)}
               placeholder="0.00"
-              className="border-0 bg-transparent px-0 h-auto text-lg font-mono tabular-nums shadow-none focus-visible:ring-0"
+              className="border-0 bg-transparent px-0 h-auto text-lg tabular-nums shadow-none focus-visible:ring-0"
             />
             <div className="text-[10px] mt-0.5">
               {binanceFailed ? (

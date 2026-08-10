@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { ChevronDown } from 'lucide-react'
 import type { ExchangeRates, RateQuote } from '@/types'
+import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import {
   DropdownMenu,
@@ -27,17 +28,6 @@ function formatRate(n: number): string {
   })
 }
 
-function formatFetchedAt(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString('es', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    })
-  } catch {
-    return iso
-  }
-}
-
 function gapLabel(rates: ExchangeRates | null, loading: boolean): string {
   if (loading) return 'Brecha …'
   if (rates?.gap == null) return 'Brecha —'
@@ -59,7 +49,7 @@ function RateRow({
           <>
             <span className="font-medium">Bs {formatRate(quote.rate)}</span>
             <span className="mt-0.5 block text-[10px] text-muted-foreground">
-              {formatFetchedAt(quote.fetchedAt)}
+              {formatDateTime(quote.fetchedAt)}
             </span>
           </>
         ) : (

@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
 import type { Customer } from '@/types'
 import { useApi } from '@/hooks/useApi'
+import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -68,9 +68,15 @@ export function CustomerFormDialog({
   const [prefix, setPrefix] = useState<VePhonePrefix | ''>('')
   const [digits, setDigits] = useState('')
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<{
+    cedula?: string
+    name?: string
+    phone?: string
+  }>({})
 
   useEffect(() => {
     if (!open) return
+    setErrors({})
     if (customer) {
       setCedula(customer.cedula ?? '')
       setFirstName(customer.firstName)
@@ -89,39 +95,35 @@ export function CustomerFormDialog({
   }, [open, customer, initialQuery])
 
   async function submit() {
+    const next: { cedula?: string; name?: string; phone?: string } = {}
     const c = normalizeCedula(cedula)
-    if (!c) {
-      toast.error('Cédula inválida (V/E + 6–9 dígitos)')
-      return
-    }
+    if (!c) next.cedula = 'Cédula inválida (V/E + 6–9 dígitos)'
     const fn = firstName.trim()
     const ln = lastName.trim()
-    if (!fn || !ln) {
-      toast.error('Nombre y apellido son requeridos')
-      return
-    }
+    if (!fn || !ln) next.name = 'Nombre y apellido son requeridos'
     const phoneResult = normalizePhone(prefix, digits)
-    if (!phoneResult.ok) {
-      toast.error(phoneResult.error)
-      return
-    }
+    let phoneValue: string | null = null
+    if (phoneResult.ok) phoneValue = phoneResult.value
+    else next.phone = phoneResult.error
+    setErrors(next)
+    if (next.cedula || next.name || next.phone) return
 
     setSaving(true)
     try {
       const payload = {
-        cedula: c,
+        cedula: c!,
         firstName: fn,
         lastName: ln,
-        phone: phoneResult.value,
+        phone: phoneValue,
       }
       const saved = editing
         ? await api.updateCustomer(customer!.id, payload)
         : await api.createCustomer(payload)
-      toast.success(editing ? 'Cliente actualizado' : 'Cliente registrado')
+      notify.success(editing ? 'Cliente actualizado' : 'Cliente registrado')
       onSaved(saved)
       onOpenChange(false)
     } catch (err) {
-      toast.error(
+      notify.error(
         err instanceof Error
           ? err.message
           : editing
@@ -147,35 +149,58 @@ export function CustomerFormDialog({
 
         <div className="grid gap-3">
           <div>
-            <Label htmlFor="cust-cedula">Cédula</Label>
+            <Label htmlFor="cust-cedula">
+              Cédula <span className="text-red-600">*</span>
+            </Label>
             <Input
               id="cust-cedula"
               className="mt-1"
               placeholder="V-12345678"
               value={cedula}
-              onChange={(e) => setCedula(e.target.value)}
+              onChange={(e) => {
+                setCedula(e.target.value)
+                setErrors((er) => ({ ...er, cedula: undefined }))
+              }}
               autoFocus
             />
+            {errors.cedula && (
+              <p className="mt-1 text-xs text-red-600">{errors.cedula}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label htmlFor="cust-fn">Nombre</Label>
+              <Label htmlFor="cust-fn">
+                Nombre <span className="text-red-600">*</span>
+              </Label>
               <Input
                 id="cust-fn"
                 className="mt-1"
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                onChange={(e) => {
+                  setFirstName(e.target.value)
+                  setErrors((er) => ({ ...er, name: undefined }))
+                }}
               />
             </div>
             <div>
-              <Label htmlFor="cust-ln">Apellido</Label>
+              <Label htmlFor="cust-ln">
+                Apellido <span className="text-red-600">*</span>
+              </Label>
               <Input
                 id="cust-ln"
                 className="mt-1"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                onChange={(e) => {
+                  setLastName(e.target.value)
+                  setErrors((er) => ({ ...er, name: undefined }))
+                }}
               />
             </div>
+            {errors.name && (
+              <p className="col-span-2 -mt-1 text-xs text-red-600">
+                {errors.name}
+              </p>
+            )}
           </div>
           <div>
             <Label>Teléfono (opcional)</Label>
@@ -199,10 +224,17 @@ export function CustomerFormDialog({
                 maxLength={7}
                 placeholder="1234567"
                 value={digits}
-                onChange={(e) => setDigits(sanitizePhoneDigits(e.target.value))}
+                onChange={(e) => {
+                  setDigits(sanitizePhoneDigits(e.target.value))
+                  setErrors((er) => ({ ...er, phone: undefined }))
+                }}
               />
             </div>
-            <p className="mt-1 text-xs text-gray-500">Exactamente 7 dígitos</p>
+            {errors.phone ? (
+              <p className="mt-1 text-xs text-red-600">{errors.phone}</p>
+            ) : (
+              <p className="mt-1 text-xs text-gray-500">Exactamente 7 dígitos</p>
+            )}
           </div>
         </div>
 
@@ -217,6 +249,7 @@ export function CustomerFormDialog({
           </Button>
           <Button
             type="button"
+            variant="primary"
             disabled={saving}
             onClick={() => void submit()}
           >

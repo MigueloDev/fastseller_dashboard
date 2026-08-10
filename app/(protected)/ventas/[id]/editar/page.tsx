@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import toast from 'react-hot-toast'
 import type { ExchangeRateRow, ExchangeRates, Product, Sale } from '@/types'
 import { useApi } from '@/hooks/useApi'
+import { notify } from '@/lib/toast'
 import { SaleForm } from '@/components/ventas/SaleForm'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function EditarVentaPage() {
   const params = useParams<{ id: string }>()
@@ -27,7 +28,7 @@ export default function EditarVentaPage() {
           api.getRatesHistory().catch(() => ({ items: [] as ExchangeRateRow[] })),
         ])
         if (s.status !== 'PENDIENTE' || s.payments.length > 0) {
-          toast.error('Solo se pueden editar ventas pendientes sin pagos')
+          notify.error('Solo se pueden editar ventas pendientes sin pagos')
           router.replace(`/ventas/${s.id}`)
           return
         }
@@ -36,7 +37,7 @@ export default function EditarVentaPage() {
         setRates(nextRates)
         setRateHistory(history.items)
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Error cargando datos')
+        notify.error(err instanceof Error ? err.message : 'Error cargando datos')
       } finally {
         setLoading(false)
       }
@@ -45,8 +46,10 @@ export default function EditarVentaPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-500">
-        Cargando…
+      <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4 sm:px-6 sm:py-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
       </div>
     )
   }
