@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ExchangeRateRow, ExchangeRates, PaymentMethod, Sale } from '@/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { CashAccount, ExchangeRateRow, ExchangeRates, PaymentMethod, Sale } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ReceiptPicker } from '@/components/ui/receipt-picker'
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,10 @@ import {
 } from '@/components/ui/dialog'
 import { BcvRatePicker } from '@/components/ventas/BcvRatePicker'
 import {
+  CashAccountSelect,
+  pickDefaultAccount,
+} from '@/components/cuentas/CashAccountSelect'
+import {
   balanceLabel,
   formatBs,
   formatUsd,
@@ -24,10 +29,7 @@ import {
   PAYMENT_METHODS,
   rateAgeLabel,
 } from '@/lib/ventas/money'
-import { fileToWebpBase64 } from '@/lib/ventas/receiptImage'
-
-const RECEIPT_MAX_BYTES = 5 * 1024 * 1024
-const RECEIPT_ACCEPT = 'image/jpeg,image/png,image/webp'
+import { fileToWebpBase64, RECEIPT_MAX_BYTES } from '@/lib/ventas/receiptImage'
 
 type Props = {
   open: boolean
@@ -47,16 +49,16 @@ export function PaymentDialog({
   onSaved,
 }: Props) {
   const api = useApi()
-  const fileRef = useRef<HTMLInputElement>(null)
   const [method, setMethod] = useState<PaymentMethod>('PAGO_MOVIL')
   const [amountInput, setAmountInput] = useState('')
   const [inputMode, setInputMode] = useState<'native' | 'usd'>('native')
   const [note, setNote] = useState('')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [rateId, setRateId] = useState(rateHistory[0]?.id ?? '')
   const [saving, setSaving] = useState(false)
-  const [errors, setErrors] = useState<{ amount?: string; receipt?: string }>({})
+  const [errors, setErrors] = useState<{ amount?: string; receipt?: string; account?: string }>({})
+  const [accounts, setAccounts] = useState<CashAccount[]>([])
+  const [accountId, setAccountId] = useState('')
 
   const meta = PAYMENT_METHOD_META[method]
   const pickedRate = rateHistory.find((r) => r.id === rateId) ?? null
@@ -84,18 +86,13 @@ export function PaymentDialog({
     setNote('')
     setRateId(rateHistory[0]?.id ?? '')
     setReceiptFile(null)
-    setPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
-      return null
-    })
-    if (fileRef.current) fileRef.current.value = ''
-  }, [open, rateHistory])
-
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
-    }
-  }, [previewUrl])
+    setAccountId('')
+    void api.getCashAccounts().then((rows) => {
+      setAccounts(rows)
+      const def = pickDefaultAccount(rows, PAYMENT_METHOD_META.PAGO_MOVIL.currency)
+      setAccountId(def?.id ?? '')
+    }).catch(() => setAccounts([]))
+  }, [open, rateHistory, api])
 
   const computed = useMemo(() => {
     const n = Number(amountInput)
@@ -130,36 +127,14 @@ export function PaymentDialog({
     setAmountInput(String(balanceBsAtRate))
   }
 
-  function onPickReceipt(file: File | null) {
-    setPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
-      return null
-    })
-    if (!file) {
-      setReceiptFile(null)
-      return
-    }
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setErrors((e) => ({ ...e, receipt: 'Solo JPEG, PNG o WebP' }))
-      if (fileRef.current) fileRef.current.value = ''
-      setReceiptFile(null)
-      return
-    }
-    if (file.size > RECEIPT_MAX_BYTES) {
-      setErrors((e) => ({ ...e, receipt: 'La imagen supera 5 MB' }))
-      if (fileRef.current) fileRef.current.value = ''
-      setReceiptFile(null)
-      return
-    }
-    setErrors((e) => ({ ...e, receipt: undefined }))
-    setReceiptFile(file)
-    setPreviewUrl(URL.createObjectURL(file))
-  }
-
   async function submit() {
     setErrors({})
     if (computed.amountNative == null || computed.amountNative <= 0) {
       setErrors({ amount: 'Monto inválido' })
+      return
+    }
+    if (!accountId) {
+      setErrors({ account: 'Cuenta requerida' })
       return
     }
     if (meta.currency === 'BS' && (!rate || rate <= 0)) {
@@ -180,6 +155,7 @@ export function PaymentDialog({
       const updated = await api.addPayment(sale.id, {
         method,
         amount: computed.amountNative,
+        accountId,
         note: note.trim() || null,
         receiptBase64,
         rateId: rateId || null,
@@ -206,7 +182,7 @@ export function PaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Registrar pago</DialogTitle>
           <DialogDescription>
@@ -229,6 +205,12 @@ export function PaymentDialog({
                 setMethod(next)
                 setInputMode('native')
                 setAmountInput('')
+                const def = pickDefaultAccount(
+                  accounts,
+                  PAYMENT_METHOD_META[next].currency,
+                )
+                setAccountId(def?.id ?? '')
+                setErrors((er) => ({ ...er, account: undefined }))
               }}
             >
               {PAYMENT_METHODS.map((m) => (
@@ -239,6 +221,18 @@ export function PaymentDialog({
               ))}
             </select>
           </div>
+
+          <CashAccountSelect
+            accounts={accounts}
+            currency={meta.currency}
+            value={accountId}
+            onChange={(next) => {
+              setAccountId(next)
+              setErrors((er) => ({ ...er, account: undefined }))
+            }}
+            label="Cuenta"
+            error={errors.account}
+          />
 
           {rateHistory.length > 0 && (
             <div>
@@ -335,45 +329,15 @@ export function PaymentDialog({
 
           <div>
             <Label>Comprobante (opcional)</Label>
-            <input
-              ref={fileRef}
-              className="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-violet-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-violet-700 hover:file:bg-violet-100"
-              type="file"
-              accept={RECEIPT_ACCEPT}
-              onChange={(e) => onPickReceipt(e.target.files?.[0] ?? null)}
-            />
-            {errors.receipt && (
-              <p className="mt-1 text-xs text-red-600">{errors.receipt}</p>
-            )}
-            {receiptFile && (
-              <div className="mt-2 flex items-start gap-3">
-                {previewUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={previewUrl}
-                    alt="Vista previa del comprobante"
-                    className="h-16 w-16 rounded border border-gray-200 object-cover"
-                  />
-                )}
-                <div className="min-w-0 flex-1 text-xs text-gray-500">
-                  <p className="truncate font-medium text-gray-700">
-                    {receiptFile.name}
-                  </p>
-                  <p>Se convertirá a WebP al guardar</p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="mt-1 h-7 text-xs"
-                    onClick={() => {
-                      if (fileRef.current) fileRef.current.value = ''
-                      onPickReceipt(null)
-                    }}
-                  >
-                    Quitar
-                  </Button>
-                </div>
-              </div>
+            {open && (
+              <ReceiptPicker
+                file={receiptFile}
+                onChange={(next) => {
+                  setReceiptFile(next)
+                  setErrors((e) => ({ ...e, receipt: undefined }))
+                }}
+                error={errors.receipt}
+              />
             )}
           </div>
         </div>

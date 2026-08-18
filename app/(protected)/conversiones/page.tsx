@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { notify as toast } from '@/lib/toast'
 import { ArrowLeftRight, Plus } from 'lucide-react'
 import type {
+  CashAccount,
   CurrencyPurchase,
   CurrencyPurchaseSummary,
   EligibleSaleForFx,
@@ -14,14 +15,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ReceiptViewerDialog } from '@/components/ventas/ReceiptViewerDialog'
+import { ReceiptPicker } from '@/components/ui/receipt-picker'
+import { ReceiptViewerDialog } from '@/components/ui/receipt-viewer-dialog'
 import { formatBs, formatUsd } from '@/lib/ventas/money'
 import { formatDate, formatDateTime } from '@/lib/format'
-import { fileToWebpBase64 } from '@/lib/ventas/receiptImage'
+import { fileToWebpBase64, RECEIPT_MAX_BYTES } from '@/lib/ventas/receiptImage'
 import { cn } from '@/lib/utils'
-
-const RECEIPT_MAX_BYTES = 5 * 1024 * 1024
-const RECEIPT_ACCEPT = 'image/jpeg,image/png,image/webp'
+import {
+  CashAccountSelect,
+  pickDefaultAccount,
+} from '@/components/cuentas/CashAccountSelect'
 
 function formatUsdt(n: number) {
   return `${n.toLocaleString('en-US', { maximumFractionDigits: 6 })} USDT`
@@ -98,7 +101,6 @@ function SummaryCards({
 
 export default function ConversionesPage() {
   const api = useApi()
-  const fileRef = useRef<HTMLInputElement>(null)
   const [items, setItems] = useState<CurrencyPurchase[]>([])
   const [summary, setSummary] = useState<CurrencyPurchaseSummary | null>(null)
   const [eligible, setEligible] = useState<EligibleSaleForFx[]>([])
@@ -110,21 +112,27 @@ export default function ConversionesPage() {
   const [usdtReceived, setUsdtReceived] = useState('')
   const [note, setNote] = useState('')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [viewerId, setViewerId] = useState<string | null>(null)
+  const [accounts, setAccounts] = useState<CashAccount[]>([])
+  const [fromAccountId, setFromAccountId] = useState('')
+  const [toAccountId, setToAccountId] = useState('')
 
   const load = useCallback(async () => {
     try {
-      const [page, elig, nextRates] = await Promise.all([
+      const [page, elig, nextRates, cash] = await Promise.all([
         api.getCurrencyPurchases({ limit: 50 }),
         api.getEligibleSalesForFx(50).catch(() => ({ items: [] })),
         api.getRates().catch(() => null),
+        api.getCashAccounts().catch(() => [] as CashAccount[]),
       ])
       setItems(page.items)
       setSummary(page.summary)
       setEligible(elig.items)
       setRates(nextRates)
+      setAccounts(cash)
+      setFromAccountId((cur) => cur || pickDefaultAccount(cash, 'BS')?.id || '')
+      setToAccountId((cur) => cur || pickDefaultAccount(cash, 'USD')?.id || '')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error cargando compras')
     } finally {
@@ -144,12 +152,6 @@ export default function ConversionesPage() {
       setBinanceRate(String(rates.binance.rate))
     }
   }, [formOpen, rates, binanceRate])
-
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
-    }
-  }, [previewUrl])
 
   const selected = useMemo(
     () => eligible.filter((s) => saleIds.includes(s.id)),
@@ -196,43 +198,9 @@ export default function ConversionesPage() {
     return url
   }, [api, viewerId])
 
-  function resetReceipt() {
-    setPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
-      return null
-    })
-    setReceiptFile(null)
-    if (fileRef.current) fileRef.current.value = ''
-  }
-
-  function onPickReceipt(file: File | null) {
-    setPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
-      return null
-    })
-    if (!file) {
-      setReceiptFile(null)
-      return
-    }
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      toast.error('Solo JPEG, PNG o WebP')
-      if (fileRef.current) fileRef.current.value = ''
-      setReceiptFile(null)
-      return
-    }
-    if (file.size > RECEIPT_MAX_BYTES) {
-      toast.error('La imagen supera 5 MB')
-      if (fileRef.current) fileRef.current.value = ''
-      setReceiptFile(null)
-      return
-    }
-    setReceiptFile(file)
-    setPreviewUrl(URL.createObjectURL(file))
-  }
-
   function closeForm() {
     setFormOpen(false)
-    resetReceipt()
+    setReceiptFile(null)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -247,6 +215,10 @@ export default function ConversionesPage() {
     }
     if (!(usdtNum > 0)) {
       toast.error('USDT recibidos debe ser > 0')
+      return
+    }
+    if (!fromAccountId || !toAccountId) {
+      toast.error('Elija las cuentas de origen y destino')
       return
     }
 
@@ -265,6 +237,8 @@ export default function ConversionesPage() {
         saleIds,
         binanceRate: Math.round(rateNum * 1e4) / 1e4,
         usdtReceived: Math.round(usdtNum * 1e6) / 1e6,
+        fromAccountId,
+        toAccountId,
         note: note.trim() || null,
         receiptBase64,
       })
@@ -395,6 +369,25 @@ export default function ConversionesPage() {
             )}
 
             <div className="grid gap-3 sm:grid-cols-2">
+              <CashAccountSelect
+                id="fx-from"
+                accounts={accounts}
+                currency="BS"
+                value={fromAccountId}
+                onChange={setFromAccountId}
+                label="Sale de"
+              />
+              <CashAccountSelect
+                id="fx-to"
+                accounts={accounts}
+                currency="USD"
+                value={toAccountId}
+                onChange={setToAccountId}
+                label="Entra a"
+              />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="fx-rate">Tasa Binance (Bs/USDT)</Label>
                 <Input
@@ -472,41 +465,11 @@ export default function ConversionesPage() {
 
             <div className="space-y-1">
               <Label htmlFor="fx-receipt">Captura del intercambio (opcional)</Label>
-              <input
+              <ReceiptPicker
                 id="fx-receipt"
-                ref={fileRef}
-                className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-violet-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-violet-700 hover:file:bg-violet-100"
-                type="file"
-                accept={RECEIPT_ACCEPT}
-                onChange={(e) => onPickReceipt(e.target.files?.[0] ?? null)}
+                file={receiptFile}
+                onChange={setReceiptFile}
               />
-              {receiptFile && (
-                <div className="mt-2 flex items-start gap-3">
-                  {previewUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={previewUrl}
-                      alt="Vista previa del intercambio"
-                      className="h-16 w-16 rounded border border-gray-200 object-cover"
-                    />
-                  )}
-                  <div className="min-w-0 flex-1 text-xs text-gray-500">
-                    <p className="truncate font-medium text-gray-700">
-                      {receiptFile.name}
-                    </p>
-                    <p>Se convertirá a WebP al guardar</p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="mt-1 h-7 text-xs"
-                      onClick={resetReceipt}
-                    >
-                      Quitar
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="flex justify-end gap-2">

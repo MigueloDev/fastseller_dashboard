@@ -61,11 +61,11 @@ export function ReceiptViewerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="min-h-48">
+        <div className="min-h-[70vh]">
           {loading && (
             <p className="py-12 text-center text-sm text-gray-500">
               Cargando…
@@ -79,7 +79,7 @@ export function ReceiptViewerDialog({
             <img
               src={url}
               alt={title}
-              className="mx-auto max-h-[70vh] w-full rounded-md object-contain"
+              className="mx-auto max-h-[90vh] w-full rounded-md object-contain"
             />
           )}
         </div>

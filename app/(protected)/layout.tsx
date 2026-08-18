@@ -78,6 +78,7 @@ export default function ProtectedLayout({
                 <NavLink href="/calculadora" label="Calculadora" />
                 <NavLink href="/whatsapp" label="WhatsApp" />
                 <NavLink href="/conversiones" label="Divisas" />
+                <NavLink href="/cuentas" label="Cuentas" />
                 <NavLink href="/scouting" label="Scouting" />
               </div>
             </div>

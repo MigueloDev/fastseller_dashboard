@@ -1,3 +1,26 @@
+export const RECEIPT_MAX_BYTES = 5 * 1024 * 1024
+export const RECEIPT_ACCEPT = 'image/jpeg,image/png,image/webp'
+
+const RECEIPT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
+export function validateReceiptFile(file: File): string | null {
+  if (!RECEIPT_TYPES.has(file.type)) return 'Solo JPEG, PNG o WebP'
+  if (file.size > RECEIPT_MAX_BYTES) return 'La imagen supera 5 MB'
+  return null
+}
+
+export function fileFromClipboard(e: ClipboardEvent): File | null {
+  const items = e.clipboardData?.items
+  if (!items) return null
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    if (item?.kind === 'file' && item.type.startsWith('image/')) {
+      return item.getAsFile()
+    }
+  }
+  return null
+}
+
 /**
  * Convert an image File to WebP via canvas (quality 0.8).
  * Rejects non-image inputs and conversion failures — never returns the original.

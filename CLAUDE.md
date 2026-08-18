@@ -29,6 +29,7 @@ Este archivo solo resume convenciones de UI para agentes.
 | `/whatsapp` | Conexión del bot vía QR (`components/whatsapp/`) |
 | `/scouting` | Placeholder |
 | `/conversiones` | Compra de divisas USDT |
+| `/cuentas`, `/cuentas/[id]` | Caja operativa (`components/cuentas/`) |
 
 ## Layout
 
@@ -94,6 +95,7 @@ Este archivo solo resume convenciones de UI para agentes.
 - Dominio clientes namespaced: `components/clientes/`
 - Dominio whatsapp namespaced: `components/whatsapp/`
 - Dominio reportes namespaced: `components/reportes/`, `lib/reports/`
+- Dominio cuentas namespaced: `components/cuentas/`
 - No tocar inbox/socket/bot al trabajar en calculadora
 
 ## Ejemplo Do / Don't

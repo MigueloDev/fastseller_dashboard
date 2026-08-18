@@ -1,21 +1,35 @@
 'use client'
 
-import { useCallback, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
 import type { Payment, Sale } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { notify } from '@/lib/toast'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ReceiptViewerDialog } from '@/components/ui/receipt-viewer-dialog'
 import {
   formatBs,
   formatUsd,
   PAYMENT_METHOD_META,
 } from '@/lib/ventas/money'
 import { formatDateTime } from '@/lib/format'
-import { fileToWebpBase64 } from '@/lib/ventas/receiptImage'
-import { ReceiptViewerDialog } from '@/components/ventas/ReceiptViewerDialog'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import {
+  RECEIPT_ACCEPT,
+  RECEIPT_MAX_BYTES,
+  fileFromClipboard,
+  fileToWebpBase64,
+  validateReceiptFile,
+} from '@/lib/ventas/receiptImage'
 
-const RECEIPT_MAX_BYTES = 5 * 1024 * 1024
-const RECEIPT_ACCEPT = 'image/jpeg,image/png,image/webp'
+type Pending = { paymentId: string; file: File; previewUrl: string }
 
 type Props = {
   payments: Payment[]
@@ -25,10 +39,14 @@ type Props = {
 export function PaymentTimeline({ payments, onSaleUpdated }: Props) {
   const api = useApi()
   const fileRef = useRef<HTMLInputElement>(null)
+  const pendingRef = useRef<Pending | null>(null)
   const [viewerId, setViewerId] = useState<string | null>(null)
   const [targetPaymentId, setTargetPaymentId] = useState<string | null>(null)
+  const [pending, setPending] = useState<Pending | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+
+  pendingRef.current = pending
 
   const loadUrl = useCallback(async () => {
     if (!viewerId) throw new Error('Sin pago seleccionado')
@@ -36,18 +54,62 @@ export function PaymentTimeline({ payments, onSaleUpdated }: Props) {
     return url
   }, [api, viewerId])
 
+  function clearPending() {
+    setPending((prev) => {
+      if (prev) URL.revokeObjectURL(prev.previewUrl)
+      return null
+    })
+  }
+
+  function setPendingFile(paymentId: string, file: File) {
+    const err = validateReceiptFile(file)
+    if (err) {
+      notify.error(err)
+      return
+    }
+    setPending((prev) => {
+      if (prev) URL.revokeObjectURL(prev.previewUrl)
+      return { paymentId, file, previewUrl: URL.createObjectURL(file) }
+    })
+  }
+
   function pickFile(paymentId: string) {
     setTargetPaymentId(paymentId)
     fileRef.current?.click()
   }
 
-  async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     const paymentId = targetPaymentId
     e.target.value = ''
     setTargetPaymentId(null)
     if (!file || !paymentId) return
+    setPendingFile(paymentId, file)
+  }
 
+  useEffect(() => {
+    return () => {
+      const current = pendingRef.current
+      if (current) URL.revokeObjectURL(current.previewUrl)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!pending) return
+    function onPaste(e: ClipboardEvent) {
+      const pasted = fileFromClipboard(e)
+      const current = pendingRef.current
+      if (!pasted || !current) return
+      e.preventDefault()
+      setPendingFile(current.paymentId, pasted)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [pending])
+
+  async function confirmUpload() {
+    if (!pending) return
+    const { paymentId, file } = pending
     setBusyId(paymentId)
     try {
       const converted = await fileToWebpBase64(file)
@@ -60,6 +122,7 @@ export function PaymentTimeline({ payments, onSaleUpdated }: Props) {
       })
       onSaleUpdated(updated)
       notify.success('Comprobante actualizado')
+      clearPending()
     } catch (err) {
       notify.error(
         err instanceof Error ? err.message : 'No se pudo actualizar el comprobante',
@@ -94,6 +157,8 @@ export function PaymentTimeline({ payments, onSaleUpdated }: Props) {
     )
   }
 
+  const uploading = pending != null && busyId === pending.paymentId
+
   return (
     <>
       <input
@@ -101,7 +166,7 @@ export function PaymentTimeline({ payments, onSaleUpdated }: Props) {
         type="file"
         accept={RECEIPT_ACCEPT}
         className="hidden"
-        onChange={(e) => void handleFileChange(e)}
+        onChange={handleFileChange}
       />
 
       <ol className="space-y-3">
@@ -175,6 +240,46 @@ export function PaymentTimeline({ payments, onSaleUpdated }: Props) {
           )
         })}
       </ol>
+
+      <Dialog
+        open={pending != null}
+        onOpenChange={(open) => {
+          if (!open && !uploading) clearPending()
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Vista previa del comprobante</DialogTitle>
+            <DialogDescription>
+              Revisa la imagen antes de subirla. Puedes pegar otra con Ctrl+V.
+            </DialogDescription>
+          </DialogHeader>
+          {pending && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={pending.previewUrl}
+              alt="Vista previa del comprobante"
+              className="mx-auto max-h-[70vh] w-full rounded-md object-contain"
+            />
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={clearPending}
+              disabled={uploading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => void confirmUpload()}
+              disabled={uploading}
+            >
+              {uploading ? 'Subiendo…' : 'Subir comprobante'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ReceiptViewerDialog
         open={viewerId != null}

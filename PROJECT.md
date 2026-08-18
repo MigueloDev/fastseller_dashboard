@@ -13,7 +13,7 @@ Al cambiar rutas, auth, contrato inbox o env, actualizar este archivo **y** el o
 |------|--------|
 | Stack | Next.js 15 App Router + React 19 + TypeScript |
 | Producto | Dashboard VictoriaLeads (inbox + productos/inventario + ventas + entregas + reportes + calculadora) |
-| Features | `/` (home métricas), `/inbox`, `/inbox/[jid]`, `/productos`, `/ventas` (+ `/nueva`, `/[id]/editar`), `/entregas` (+ `/nueva`, `/[id]/imprimir`), `/clientes`, `/reportes` (+ `/ventas`, `/kardex`, `/movimientos`), `/conversiones` (compra USDT multi-venta), `/calculadora` |
+| Features | `/` (home métricas), `/inbox`, `/inbox/[jid]`, `/productos`, `/ventas` (+ `/nueva`, `/[id]/editar`), `/entregas` (+ `/nueva`, `/[id]/imprimir`), `/clientes`, `/reportes` (+ `/ventas`, `/divisas`, `/kardex`, `/movimientos`), `/conversiones` (compra USDT multi-venta), `/cuentas` (caja operativa), `/calculadora` |
 | Placeholders | `/scouting` |
 
 ---
@@ -45,7 +45,7 @@ Scripts: `dev`, `build`, `start`, `lint`, `test`.
 |-------------------|------------|
 | `app/globals.css` | Tailwind 4, tokens oklch, `@theme inline`, dark preparado pero inactivo |
 | `components.json` | Config shadcn `base-nova` |
-| `components/ui/*` | Primitivos shadcn (Card, Alert…) + patrones propios: `page-header` (`PageContainer`/`PageHeader`), `status-badge`, `skeleton` (`Skeleton`/`TableSkeleton`), `empty-state`, `confirm-dialog` |
+| `components/ui/*` | Primitivos shadcn (Card, Alert…) + patrones propios: `page-header` (`PageContainer`/`PageHeader`), `status-badge`, `skeleton` (`Skeleton`/`TableSkeleton`), `empty-state`, `confirm-dialog`, `receipt-picker`, `receipt-viewer-dialog` |
 | `lib/utils.ts` | `cn()` = `twMerge(clsx(...))` |
 | `lib/toast.ts` | `notify` — wrapper de react-hot-toast (una sola notificación visible; bottom-right 4s vía `ToastProvider`) |
 | `lib/ventas/money.ts` | `formatUsd` (`$ 1.234,56`) / `formatBs` (`Bs. 1.234,56`) en `es-VE` + métodos de pago |
@@ -95,12 +95,15 @@ Dark mode: tokens existen; **no hay** toggle. Light only.
 | `/clientes` | `app/(protected)/clientes/page.tsx` | Listado + búsqueda + crear/editar (nav desktop) |
 | `/reportes` | `app/(protected)/reportes/page.tsx` | Redirect → `/reportes/ventas`; `layout.tsx` con tabs |
 | `/reportes/ventas` | `app/(protected)/reportes/ventas/page.tsx` | Reporte de ventas por rango + filtros estado/entrega/cobro + buckets Pagadas/Abonadas/A crédito + CSV |
+| `/reportes/divisas` | `app/(protected)/reportes/divisas/page.tsx` | Conciliación Bs cobrados vs convertidos a USDT + compras del período; CSV detallado y resumen desde el backend |
 | `/reportes/kardex` | `app/(protected)/reportes/kardex/page.tsx` | Kardex por producto/variante con saldo corrido + CSV |
 | `/reportes/movimientos` | `app/(protected)/reportes/movimientos/page.tsx` | Ledger plano por producto (todas las variantes) + CSV; `?productId=` |
 | `/calculadora` | `app/(protected)/calculadora/page.tsx` | ImportCalc VE (`GET /rates`) |
 | `/whatsapp` | `app/(protected)/whatsapp/page.tsx` | Conexión del bot vía QR (`GET /whatsapp/status`, `POST /whatsapp/logout`, socket `bot_status`) |
 | `/scouting` | `app/(protected)/scouting/page.tsx` | Stub |
 | `/conversiones` | `app/(protected)/conversiones/page.tsx` | Compra de divisas (1 trade ↔ N ventas con Bs pendientes) |
+| `/cuentas` | `app/(protected)/cuentas/page.tsx` | Lista de cuentas de caja (saldos) |
+| `/cuentas/[id]` | `app/(protected)/cuentas/[id]/page.tsx` | Estado de cuenta + gasto/préstamo/manual + totales del rango + CSV |
 
 ### Env (ver `.env.example`)
 
@@ -112,6 +115,8 @@ Dark mode: tokens existen; **no hay** toggle. Light only.
 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | p.ej. `/sign-in` |
 | `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL` | Post-login → `/` (home) |
 | `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL` | Force redirect → `/` |
+
+Vercel (cuando toque): Root Directory = `fastseller_dashboard`; `pk_live_` / `sk_live_`; `NEXT_PUBLIC_BOT_URL` = HTTPS del VPS. Ese origin de Vercel va en `DASHBOARD_URL` de `backend/deploy/.env`.
 
 ---
 
@@ -131,6 +136,7 @@ flowchart TD
   entregas["/entregas"]
   clientes["/clientes"]
   calc["/calculadora"]
+  cuentas["/cuentas"]
   stubs["/scouting /conversiones"]
 
   mw --> pub
@@ -143,6 +149,7 @@ flowchart TD
   shell --> entregas
   shell --> clientes
   shell --> calc
+  shell --> cuentas
   shell --> stubs
 ```
 
@@ -193,14 +200,15 @@ Una venta sin entregar **reserva** stock en vez de descontarlo: `quantity` es el
 | `components/ventas/CreateCustomerDialog.tsx` | Thin wrapper → `CustomerFormDialog` (create) |
 | `components/ventas/PriceModeSelector.tsx` | REF_USD / REF_BS |
 | `components/ventas/SaleLineItem.tsx` | Línea producto/variante/qty/precio editable |
-| `components/ventas/PaymentDialog.tsx` | Registrar abono (+ comprobante opcional → WebP) |
-| `components/ventas/PaymentTimeline.tsx` | Historial pagos (Ver / Cambiar / Eliminar / Adjuntar comprobante) |
-| `components/ventas/ReceiptViewerDialog.tsx` | Modal de imagen firmada (pagos + compras USDT) |
+| `components/ventas/PaymentDialog.tsx` | Registrar abono (+ cuenta de caja filtrada por moneda; comprobante opcional → WebP; preview grande, Ctrl+V) |
+| `components/ventas/PaymentTimeline.tsx` | Historial pagos (Ver / Cambiar / Eliminar / Adjuntar; preview+confirmar antes de subir) |
+| `components/ui/receipt-picker.tsx` | Input JPEG/PNG/WebP, preview grande (`object-contain`), clic a viewer, Ctrl+V |
+| `components/ui/receipt-viewer-dialog.tsx` | Modal de imagen (URL firmada o object URL local) |
 | `components/ventas/DeliveryBadge.tsx` | Badge Por entregar / Entregada (lista + detalle) |
 | `components/ventas/ReceivablesCard.tsx` | CxC en listado |
 | `lib/ve/cedula.ts` / `lib/ve/phone.ts` | Normalización VE |
 | `lib/ventas/money.ts` | Formatos + métodos de pago + `priceOf(qty)` / `qtyByProduct` |
-| `lib/ventas/receiptImage.ts` | Conversión JPEG/PNG/WebP → WebP (canvas, calidad 80 %) |
+| `lib/ventas/receiptImage.ts` | Validación + clipboard + conversión JPEG/PNG/WebP → WebP (canvas, calidad 80 %) |
 
 ### Módulo entregas (notas de entrega)
 
@@ -224,15 +232,18 @@ Nav: **Entregas** en desktop; tab móvil. Shell con `print:hidden` para que la r
 
 | Path | Rol |
 |------|-----|
-| `app/(protected)/reportes/layout.tsx` | Header + tabs Ventas / Kardex / Movimientos |
+| `app/(protected)/reportes/layout.tsx` | Header + tabs Ventas / Divisas / Kardex / Movimientos |
 | `app/(protected)/reportes/page.tsx` | Redirect a `/reportes/ventas` |
 | `app/(protected)/reportes/ventas/page.tsx` | Cards cobro (vendidas/pagadas/abonadas/crédito) + filtro cobro + tabla + lista a crédito + por producto + CSV |
+| `app/(protected)/reportes/divisas/page.tsx` | Cards Bs cobrados/convertidos/pendientes + USDT; tabla por venta + compras del período; CSV detallado/resumen via `GET /reports/fx/csv` |
 | `app/(protected)/reportes/kardex/page.tsx` | Selector producto/variante + tabla con saldo corrido + CSV |
 | `app/(protected)/reportes/movimientos/page.tsx` | Selector producto + ledger plano (todas las variantes) + CSV |
 | `components/reportes/ReportRange.tsx` | `PeriodTabs` + rango manual con `<input type="date">`; exporta `rangeQuery` / `rangeLabel` |
 | `lib/reports/csv.ts` | `toCsv` / `downloadCsv` (BOM para Excel) / `csvDateTime` — sin librerías |
 
 Estado de cobro (derivado, no enum DB): **Pagada** / **Abonada** (PENDIENTE con pagos) / **A crédito** (PENDIENTE sin pagos). El CSV concatena bloques `Cobro` (`byPaymentState`) y `Productos vendidos` (`byProduct`).
+
+Divisas: `GET /reports/fx` — ventas con pagos BS (`createdAt` en rango, historial completo de pagos/allocations) + compras (`purchasedAt` en rango). Identidad `bsCobrados = bsConvertidos + bsPendientes`. CSV: `GET /reports/fx/csv` (`mode=detail` filas + TOTAL + Resumen, o `mode=summary` solo-totales). Sin IDs de venta/compra.
 
 El rango manual manda sobre el tab de período; limpiarlo vuelve al tab.
 
@@ -243,15 +254,27 @@ El rango manual manda sobre el tab de período; limpiarlo vuelve al tab.
 | `app/(protected)/clientes/page.tsx` | Listado + búsqueda + crear/editar |
 | `components/clientes/CustomerFormDialog.tsx` | Create / edit (cédula, nombre, apellido, tel VE) |
 
+### Módulo caja operativa
+
+| Path | Rol |
+|------|-----|
+| `app/(protected)/cuentas/page.tsx` | Cards de cuentas (alias, institución, titular, moneda, saldo) + crear |
+| `app/(protected)/cuentas/[id]/page.tsx` | Estado de cuenta: ReportRange, saldo corrido, totales gastos/préstamos, movimiento, CSV |
+| `components/cuentas/AccountFormDialog.tsx` | Crear / editar cuenta |
+| `components/cuentas/CashMovementDialog.tsx` | Intenciones: Entrada / Salida / Ajuste / Gasto / Préstamo otorgado / Cobro |
+| `components/cuentas/CashAccountSelect.tsx` | Picker filtrado por moneda + `pickDefaultAccount` |
+
+Nav desktop: **Cuentas** junto a Divisas. Sin tab mobile v1. Techo: Zelle/efectivo USD → Binance hasta que haya más cuentas USD.
+
 ### Módulo compra de divisas
 
 | Path | Rol |
 |------|-----|
-| `app/(protected)/conversiones/page.tsx` | Resumen + multi-select ventas + registrar compra USDT (+ captura) + historial |
-| `lib/api.ts` / `hooks/useApi.ts` | `getCurrencyPurchases`, `getEligibleSalesForFx`, `createCurrencyPurchase` (`saleIds[]`), `getCurrencyPurchaseReceiptUrl` |
+| `app/(protected)/conversiones/page.tsx` | Resumen + multi-select ventas + “Sale de”/“Entra a” (cuentas BS/USD) + registrar compra USDT (+ captura con preview grande / Ctrl+V) + historial |
+| `lib/api.ts` / `hooks/useApi.ts` | `getCurrencyPurchases`, `getEligibleSalesForFx`, `createCurrencyPurchase` (`saleIds[]`, `fromAccountId`, `toAccountId`), `getCurrencyPurchaseReceiptUrl` |
 | `types/index.ts` | `CurrencyPurchase` (`allocations[]`, `hasReceipt`), `CurrencyPurchaseAllocation`, `EligibleSaleForFx`, … |
 
-Ganancia realizada: `Σ USDT + Σ USD atribuidos − costo snapshot`, estampada en la allocation de cierre (venta `PAGADA` sin Bs pendientes) o al liquidar si los Bs ya estaban convertidos. Una compra puede agrupar N ventas; varias compras en el tiempo por venta siguen OK (cada una consume el `bsAvailable` actual). Captura opcional → `compras_usdt/{purchaseId}/`; se ve en modal.
+Ganancia realizada: `Σ USDT + Σ USD atribuidos − costo snapshot`, estampada en la allocation de cierre (venta `PAGADA` sin Bs pendientes) o al liquidar si los Bs ya estaban convertidos. Una compra puede agrupar N ventas; varias compras en el tiempo por venta siguen OK (cada una consume el `bsAvailable` actual). Captura opcional → `compras_usdt/{purchaseId}/`; preview grande + Ctrl+V al adjuntar; se ve en modal.
 
 ### Módulo calculadora
 

@@ -10,6 +10,9 @@ import type {
   CreatePaymentPayload,
   CreateSalePayload,
   CreateCurrencyPurchasePayload,
+  CreateCashAccountPayload,
+  PatchCashAccountPayload,
+  CreateCashMovementPayload,
   ProductWritePayload,
 } from '@/types'
 
@@ -175,6 +178,15 @@ export function useApi() {
       paymentState?: string
     }) => withToken(token => api.getSalesReport(token, params)),
 
+    getFxReport: (params?: { from?: string; to?: string }) =>
+      withToken(token => api.getFxReport(token, params)),
+
+    getFxReportCsv: (params?: {
+      from?: string
+      to?: string
+      mode?: 'detail' | 'summary'
+    }) => withToken(token => api.getFxReportCsv(token, params)),
+
     getKardex: (params: {
       productId: string
       variantId?: string | null
@@ -199,5 +211,21 @@ export function useApi() {
 
     getCurrencyPurchaseReceiptUrl: (purchaseId: string) =>
       withToken(token => api.getCurrencyPurchaseReceiptUrl(token, purchaseId)),
+
+    getCashAccounts: () => withToken(token => api.getCashAccounts(token)),
+
+    getCashAccount: (
+      id: string,
+      params?: { from?: string; to?: string; limit?: number; offset?: number },
+    ) => withToken(token => api.getCashAccount(token, id, params)),
+
+    createCashAccount: (data: CreateCashAccountPayload) =>
+      withToken(token => api.createCashAccount(token, data)),
+
+    updateCashAccount: (id: string, data: PatchCashAccountPayload) =>
+      withToken(token => api.updateCashAccount(token, id, data)),
+
+    createCashMovement: (accountId: string, data: CreateCashMovementPayload) =>
+      withToken(token => api.createCashMovement(token, accountId, data)),
   }), [withToken])
 }

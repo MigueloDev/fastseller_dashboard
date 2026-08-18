@@ -289,6 +289,7 @@ export interface SaleItem {
 export interface Payment {
   id: string
   saleId: string
+  accountId?: string | null
   method: PaymentMethod
   currency: PaymentCurrency
   amount: number
@@ -405,6 +406,7 @@ export interface CreateDeliveryNotePayload {
 export interface CreatePaymentPayload {
   method: PaymentMethod
   amount: number
+  accountId: string
   note?: string | null
   /** data URL or raw base64 WebP produced by the client */
   receiptBase64?: string | null
@@ -521,6 +523,55 @@ export interface SalesReport {
   sales: SalesReportItem[]
 }
 
+export interface FxReportSale {
+  id: string
+  createdAt: string
+  customer: { id: string; name: string; cedula: string | null } | null
+  status: SaleStatus
+  paymentState: PaymentState | null
+  totalUsd: number
+  bsCollected: number
+  bsConverted: number
+  bsPending: number
+  usdtReceived: number
+  usdCollected: number
+  profitUsd: number | null
+  paymentsCount: number
+  purchasesCount: number
+}
+
+export interface FxReportPurchase {
+  id: string
+  purchasedAt: string
+  binanceRate: number
+  bsSpent: number
+  usdtReceived: number
+  expectedUsdt: number | null
+  diffUsdt: number | null
+  salesCount: number
+  saleIds: string[]
+  note: string | null
+  agentName: string | null
+}
+
+export interface FxReport {
+  period: { from: string | null; to: string | null }
+  totals: {
+    count: number
+    bsCollected: number
+    bsConverted: number
+    bsPending: number
+    usdtReceived: number
+    usdCollected: number
+    profitUsd: number | null
+    purchasesCount: number
+    purchasesBsSpent: number
+    purchasesUsdt: number
+  }
+  sales: FxReportSale[]
+  purchases: FxReportPurchase[]
+}
+
 export interface KardexMovement {
   id: string
   createdAt: string
@@ -630,6 +681,8 @@ export interface CurrencyPurchase {
   hasReceipt: boolean
   purchasedAt: string
   createdAt: string
+  fromAccountId?: string | null
+  toAccountId?: string | null
   allocations?: CurrencyPurchaseAllocation[]
   sale?: {
     id: string
@@ -680,6 +733,77 @@ export interface CreateCurrencyPurchasePayload {
   saleIds: string[]
   binanceRate: number
   usdtReceived: number
+  fromAccountId: string
+  toAccountId: string
   note?: string | null
   receiptBase64?: string | null
+}
+
+export type CashMovementType = MovementType
+
+export type CashMovementReason = 'MANUAL' | 'GASTO' | 'PRESTAMO'
+
+export interface CashAccount {
+  id: string
+  alias: string
+  institution: string
+  holder: string
+  currency: PaymentCurrency
+  balance: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CashMovement {
+  id: string
+  accountId: string
+  type: CashMovementType
+  reason: CashMovementReason
+  amount: number
+  delta: number
+  note: string | null
+  agentName: string | null
+  paymentId: string | null
+  currencyPurchaseId: string | null
+  createdAt: string
+  /** Saldo corrido después de este movimiento (detalle). */
+  balance?: number
+}
+
+export interface CashAccountDetail extends CashAccount {
+  opening: number
+  closing: number
+  movements: CashMovement[]
+  totals: {
+    gastos: number
+    prestamosOtorgados: number
+    prestamosCobrados: number
+  }
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface CreateCashAccountPayload {
+  alias: string
+  institution: string
+  holder: string
+  currency: PaymentCurrency
+}
+
+export interface PatchCashAccountPayload {
+  alias?: string
+  institution?: string
+  holder?: string
+  active?: boolean
+  currency?: PaymentCurrency
+}
+
+export interface CreateCashMovementPayload {
+  type: CashMovementType
+  reason?: CashMovementReason
+  amount?: number
+  delta?: number
+  note?: string | null
 }

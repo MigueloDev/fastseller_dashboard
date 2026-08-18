@@ -23,12 +23,19 @@ import type {
   Sale,
   SalesPage,
   SalesReport,
+  FxReport,
   KardexReport,
   ProductMovementsReport,
   StockSummaryItem,
   MetricsSummary,
   WhatsAppState,
   CurrencyPurchase,
+  CashAccount,
+  CashAccountDetail,
+  CreateCashAccountPayload,
+  PatchCashAccountPayload,
+  CreateCashMovementPayload,
+  CashMovement,
 } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_BOT_URL
@@ -62,6 +69,23 @@ async function request<T>(
     throw new Error(message)
   }
   return res.json()
+}
+
+async function requestBlob(path: string, token: string): Promise<Blob> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    let message = `API error: ${res.status}`
+    try {
+      const body = await res.json()
+      if (body?.error) message = body.error
+    } catch {
+      // ignore
+    }
+    throw new Error(message)
+  }
+  return res.blob()
 }
 
 export const api = {
@@ -351,6 +375,36 @@ export const api = {
     )
   },
 
+  getFxReport: (
+    token: string,
+    params: { from?: string; to?: string } = {}
+  ) => {
+    const qs = new URLSearchParams()
+    if (params.from) qs.set('from', params.from)
+    if (params.to) qs.set('to', params.to)
+    const query = qs.toString()
+    return request<FxReport>(
+      `/reports/fx${query ? `?${query}` : ''}`,
+      token
+    )
+  },
+
+  getFxReportCsv: (
+    token: string,
+    params: {
+      from?: string
+      to?: string
+      mode?: 'detail' | 'summary'
+    } = {}
+  ) => {
+    const qs = new URLSearchParams()
+    if (params.from) qs.set('from', params.from)
+    if (params.to) qs.set('to', params.to)
+    if (params.mode) qs.set('mode', params.mode)
+    const query = qs.toString()
+    return requestBlob(`/reports/fx/csv${query ? `?${query}` : ''}`, token)
+  },
+
   getKardex: (
     token: string,
     params: {
@@ -419,5 +473,48 @@ export const api = {
     request<{ url: string; expiresIn: number }>(
       `/currency-purchases/${purchaseId}/receipt-url`,
       token,
+    ),
+
+  getCashAccounts: (token: string) =>
+    request<CashAccount[]>('/cash-accounts', token),
+
+  getCashAccount: (
+    token: string,
+    id: string,
+    params: { from?: string; to?: string; limit?: number; offset?: number } = {},
+  ) => {
+    const qs = new URLSearchParams()
+    if (params.from) qs.set('from', params.from)
+    if (params.to) qs.set('to', params.to)
+    if (params.limit != null) qs.set('limit', String(params.limit))
+    if (params.offset != null) qs.set('offset', String(params.offset))
+    const query = qs.toString()
+    return request<CashAccountDetail>(
+      `/cash-accounts/${id}${query ? `?${query}` : ''}`,
+      token,
+    )
+  },
+
+  createCashAccount: (token: string, data: CreateCashAccountPayload) =>
+    request<CashAccount>('/cash-accounts', token, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateCashAccount: (token: string, id: string, data: PatchCashAccountPayload) =>
+    request<CashAccount>(`/cash-accounts/${id}`, token, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  createCashMovement: (
+    token: string,
+    accountId: string,
+    data: CreateCashMovementPayload,
+  ) =>
+    request<{ account: CashAccount; movement: CashMovement }>(
+      `/cash-accounts/${accountId}/movements`,
+      token,
+      { method: 'POST', body: JSON.stringify(data) },
     ),
 }
