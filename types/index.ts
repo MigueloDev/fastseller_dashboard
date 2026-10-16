@@ -1,3 +1,16 @@
+export type StaffRole = 'ADMIN' | 'VENDEDOR'
+
+export interface Me {
+  id: string
+  name: string | null
+  email: string | null
+  role: StaffRole
+}
+
+export interface StaffMember extends Me {
+  createdAt: string
+}
+
 export type ConversationStatus = 'bot' | 'human' | 'closed'
 export type MessageDirection = 'inbound' | 'outbound'
 export type MessageOrigin = 'bot' | 'manual' | 'client'
@@ -776,6 +789,8 @@ export interface CashAccountDetail extends CashAccount {
   closing: number
   movements: CashMovement[]
   totals: {
+    entradas: number
+    salidas: number
     gastos: number
     prestamosOtorgados: number
     prestamosCobrados: number

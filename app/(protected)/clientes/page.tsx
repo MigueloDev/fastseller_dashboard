@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Pencil, Plus, Users } from 'lucide-react'
 import type { Customer } from '@/types'
 import { useApi } from '@/hooks/useApi'
+import { useMe } from '@/hooks/useMe'
 import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +17,8 @@ import { formatPhoneDisplay } from '@/lib/ve/phone'
 
 export default function ClientesPage() {
   const api = useApi()
+  const { me } = useMe()
+  const seller = me?.role === 'VENDEDOR'
   const [customers, setCustomers] = useState<Customer[]>([])
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -118,15 +121,17 @@ export default function ClientesPage() {
                       .join(' · ') || 'Sin cédula / teléfono'}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => openEdit(c)}
-                >
-                  <Pencil className="size-4" />
-                  Editar
-                </Button>
+                {!seller && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openEdit(c)}
+                  >
+                    <Pencil className="size-4" />
+                    Editar
+                  </Button>
+                )}
               </li>
             ))}
           </ul>

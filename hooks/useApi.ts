@@ -14,6 +14,7 @@ import type {
   PatchCashAccountPayload,
   CreateCashMovementPayload,
   ProductWritePayload,
+  StaffRole,
 } from '@/types'
 
 export function useApi() {
@@ -227,5 +228,12 @@ export function useApi() {
 
     createCashMovement: (accountId: string, data: CreateCashMovementPayload) =>
       withToken(token => api.createCashMovement(token, accountId, data)),
+
+    getMe: () => withToken(token => api.getMe(token)),
+
+    getStaff: () => withToken(token => api.getStaff(token)),
+
+    updateStaffRole: (id: string, role: StaffRole) =>
+      withToken(token => api.updateStaffRole(token, id, role)),
   }), [withToken])
 }

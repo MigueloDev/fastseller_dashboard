@@ -27,6 +27,7 @@ import {
   priceOf,
   qtyByProduct,
   rateAgeLabel,
+  round2,
 } from '@/lib/ventas/money'
 
 function newKey() {
@@ -103,7 +104,8 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
 
   // Tasa solo para el equivalente Bs en pantalla; la venta se guarda en USD.
   const pickedRate = rateHistory.find((r) => r.id === rateId) ?? null
-  const quoteRate = pickedRate?.rate ?? rates?.bcv?.rate ?? null
+  const rawQuoteRate = pickedRate?.rate ?? rates?.bcv?.rate ?? null
+  const quoteRate = rawQuoteRate != null ? round2(rawQuoteRate) : null
   const quoteFetchedAt = pickedRate?.fetchedAt ?? rates?.bcv?.fetchedAt
 
   const productQtys = useMemo(
@@ -140,7 +142,7 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
     }
     const equivBs =
       quoteRate && quoteRate > 0
-        ? Math.round(selected * quoteRate * 100) / 100
+        ? round2(selected * quoteRate)
         : null
     return { totalUsd, totalBs, selected, equivBs }
   }, [lines, activeProducts, priceRef, quoteRate, productQtys])
@@ -223,7 +225,7 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
 
   const toBs = (usd: number) =>
     quoteRate && quoteRate > 0
-      ? Math.round(usd * quoteRate * 100) / 100
+      ? round2(usd * quoteRate)
       : null
 
   return (

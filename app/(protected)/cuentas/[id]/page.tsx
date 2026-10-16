@@ -78,6 +78,7 @@ export default function CuentaDetailPage() {
       'Nota',
       'Agente',
     ]
+    const t = detail.totals
     const rows = [
       ['', 'Saldo inicial', '', '', '', detail.opening, '', '', ''],
       ...detail.movements.map((m) => [
@@ -91,6 +92,12 @@ export default function CuentaDetailPage() {
         m.note,
         m.agentName,
       ]),
+      ['', 'TOTAL entradas', '', t.entradas, '', '', '', '', ''],
+      ['', 'TOTAL salidas', '', t.salidas, '', '', '', '', ''],
+      ['', 'Gastos', '', t.gastos, '', '', '', '', ''],
+      ['', 'Préstamos otorgados', '', t.prestamosOtorgados, '', '', '', '', ''],
+      ['', 'Préstamos cobrados', '', t.prestamosCobrados, '', '', '', '', ''],
+      ['', 'Cierre', '', '', '', detail.closing, `${detail.total} mov.`, '', ''],
     ]
     downloadCsv(
       `cuenta_${detail.alias}_${rangeLabel(range)}`,
@@ -175,21 +182,45 @@ export default function CuentaDetailPage() {
                   )}
                 </div>
                 <div>
+                  <p className="text-xs text-gray-500">Inicial</p>
+                  <p className="text-lg font-medium tabular-nums">
+                    {money(detail.currency, detail.opening)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Entradas</p>
+                  <p className="text-lg font-medium tabular-nums text-green-700">
+                    {money(detail.currency, detail.totals.entradas)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Salidas</p>
+                  <p className="text-lg font-medium tabular-nums text-red-600">
+                    {money(detail.currency, detail.totals.salidas)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Cierre</p>
+                  <p className="text-lg font-medium tabular-nums">
+                    {money(detail.currency, detail.closing)}
+                  </p>
+                </div>
+                <div>
                   <p className="text-xs text-gray-500">Gastos</p>
                   <p className="text-lg font-medium tabular-nums text-red-600">
-                    {money(detail.currency, detail.totals?.gastos ?? 0)}
+                    {money(detail.currency, detail.totals.gastos)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Prestados</p>
                   <p className="text-lg font-medium tabular-nums text-red-600">
-                    {money(detail.currency, detail.totals?.prestamosOtorgados ?? 0)}
+                    {money(detail.currency, detail.totals.prestamosOtorgados)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Cobrados</p>
                   <p className="text-lg font-medium tabular-nums text-green-700">
-                    {money(detail.currency, detail.totals?.prestamosCobrados ?? 0)}
+                    {money(detail.currency, detail.totals.prestamosCobrados)}
                   </p>
                 </div>
               </div>
@@ -265,6 +296,32 @@ export default function CuentaDetailPage() {
                     ))
                   )}
                 </tbody>
+                <tfoot className="border-t border-gray-200 bg-gray-50 font-medium">
+                  <tr>
+                    <td className="px-3 py-2 text-gray-600" colSpan={2}>
+                      {detail.total} movimiento
+                      {detail.total === 1 ? '' : 's'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      <span className="text-green-700">
+                        {money(detail.currency, detail.totals.entradas)}
+                      </span>
+                      <span className="mx-1 text-gray-400">/</span>
+                      <span className="text-red-600">
+                        {money(detail.currency, detail.totals.salidas)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-900">
+                      {money(detail.currency, detail.closing)}
+                    </td>
+                    <td
+                      className="px-3 py-2 text-xs font-normal text-gray-500"
+                      colSpan={2}
+                    >
+                      Entradas / salidas · cierre del período
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </>

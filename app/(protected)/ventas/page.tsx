@@ -12,6 +12,7 @@ import type {
   SaleStatus,
 } from '@/types'
 import { useApi } from '@/hooks/useApi'
+import { useMe } from '@/hooks/useMe'
 import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { PageContainer, PageHeader } from '@/components/ui/page-header'
@@ -41,6 +42,8 @@ function statusBadge(sale: Sale) {
 
 function VentasPageInner() {
   const api = useApi()
+  const { me } = useMe()
+  const seller = me?.role === 'VENDEDOR'
   const searchParams = useSearchParams()
   const [sales, setSales] = useState<Sale[]>([])
   const [receivables, setReceivables] = useState<ReceivablesResponse | null>(null)
@@ -64,7 +67,9 @@ function VentasPageInner() {
           delivery: delivery || undefined,
           limit: 50,
         }),
-        api.getReceivables().catch(() => null),
+        seller
+          ? Promise.resolve(null)
+          : api.getReceivables().catch(() => null),
       ])
       setSales(page.items)
       setReceivables(recv)
@@ -73,7 +78,7 @@ function VentasPageInner() {
     } finally {
       setLoading(false)
     }
-  }, [api, status, delivery])
+  }, [api, status, delivery, seller])
 
   useEffect(() => {
     setLoading(true)
@@ -130,7 +135,9 @@ function VentasPageInner() {
           }
         />
 
-        <ReceivablesCard data={receivables} loading={loading && !receivables} />
+        {!seller && (
+          <ReceivablesCard data={receivables} loading={loading && !receivables} />
+        )}
 
         {loading ? (
           <TableSkeleton rows={6} />
@@ -173,7 +180,7 @@ function VentasPageInner() {
                     <p className="tabular-nums font-semibold text-gray-900">
                       {formatUsd(sale.totalUsd)}
                     </p>
-                    {sale.status !== 'ANULADA' &&
+                    {!seller && sale.status !== 'ANULADA' &&
                       (sale.profitUsd != null ? (
                         <p
                           className={cn(
@@ -203,7 +210,7 @@ function VentasPageInner() {
                     )}
                   </div>
                 </Link>
-                {sale.customer && (
+                {!seller && sale.customer && (
                   <Button
                     type="button"
                     size="icon-sm"

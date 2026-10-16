@@ -93,9 +93,17 @@ export default function CuentasPage() {
                         {!a.active ? ' · inactiva' : ''}
                       </p>
                     </div>
-                    <p className="text-sm font-medium tabular-nums text-gray-900">
-                      {formatBalance(a)}
-                    </p>
+                    {
+                      a.balance > 0 ? (
+                        <p className="text-sm font-medium tabular-nums text-gray-900">
+                          {formatBalance(a)}
+                        </p>
+                      ) : (
+                        <p className="text-sm font-medium tabular-nums text-red-500">
+                          {formatBalance(a)}
+                        </p>
+                      )
+                    }
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
                     {a.currency === 'BS' ? 'Bs' : 'USD'}

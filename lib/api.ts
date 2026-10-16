@@ -36,6 +36,9 @@ import type {
   PatchCashAccountPayload,
   CreateCashMovementPayload,
   CashMovement,
+  Me,
+  StaffMember,
+  StaffRole,
 } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_BOT_URL
@@ -517,4 +520,14 @@ export const api = {
       token,
       { method: 'POST', body: JSON.stringify(data) },
     ),
+
+  getMe: (token: string) => request<Me>('/me', token),
+
+  getStaff: (token: string) => request<StaffMember[]>('/staff', token),
+
+  updateStaffRole: (token: string, id: string, role: StaffRole) =>
+    request<StaffMember>(`/staff/${id}`, token, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
 }

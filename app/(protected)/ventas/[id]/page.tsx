@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
 import type { ExchangeRateRow, ExchangeRates, Sale } from '@/types'
 import { useApi } from '@/hooks/useApi'
+import { useMe } from '@/hooks/useMe'
 import { notify } from '@/lib/toast'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { PageContainer, PageHeader } from '@/components/ui/page-header'
@@ -51,6 +52,8 @@ const CONFIRM_COPY: Record<
 export default function VentaDetailPage() {
   const params = useParams<{ id: string }>()
   const api = useApi()
+  const { me } = useMe()
+  const seller = me?.role === 'VENDEDOR'
   const [sale, setSale] = useState<Sale | null>(null)
   const [rates, setRates] = useState<ExchangeRates | null>(null)
   const [rateHistory, setRateHistory] = useState<ExchangeRateRow[]>([])
@@ -157,9 +160,10 @@ export default function VentaDetailPage() {
   const undelivered = sale.deliveryStatus === 'POR_ENTREGAR'
   const canPay = sale.status === 'PENDIENTE'
   const canVoid = sale.status === 'PENDIENTE' && sale.payments.length === 0
-  const canEdit = canVoid && undelivered
+  const canEdit = !seller && canVoid && undelivered
   const canDeliver = sale.status !== 'ANULADA' && undelivered
-  const canUndeliver = sale.status !== 'ANULADA' && !undelivered
+  const canUndeliver = !seller && sale.status !== 'ANULADA' && !undelivered
+  const canVoidSale = !seller && canVoid
 
   return (
     <div className="h-full overflow-auto">
@@ -285,7 +289,11 @@ export default function VentaDetailPage() {
 
         <section>
           <h2 className="mb-2 text-lg font-medium text-gray-900">Pagos</h2>
-          <PaymentTimeline payments={sale.payments} onSaleUpdated={setSale} />
+          <PaymentTimeline
+            payments={sale.payments}
+            onSaleUpdated={setSale}
+            allowReceiptEdit={!seller}
+          />
         </section>
 
         <div className="flex flex-wrap gap-2">
@@ -311,7 +319,7 @@ export default function VentaDetailPage() {
               Editar
             </Link>
           )}
-          {canVoid && (
+          {canVoidSale && (
             <Button
               variant="outline"
               disabled={voiding}

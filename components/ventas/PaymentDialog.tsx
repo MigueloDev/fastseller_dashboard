@@ -28,6 +28,7 @@ import {
   PAYMENT_METHOD_META,
   PAYMENT_METHODS,
   rateAgeLabel,
+  round2,
 } from '@/lib/ventas/money'
 import { fileToWebpBase64, RECEIPT_MAX_BYTES } from '@/lib/ventas/receiptImage'
 
@@ -62,7 +63,8 @@ export function PaymentDialog({
 
   const meta = PAYMENT_METHOD_META[method]
   const pickedRate = rateHistory.find((r) => r.id === rateId) ?? null
-  const rate = pickedRate?.rate ?? rates?.bcv?.rate ?? null
+  const rawRate = pickedRate?.rate ?? rates?.bcv?.rate ?? null
+  const rate = rawRate != null ? round2(rawRate) : null
   const rateFetchedAt = pickedRate?.fetchedAt ?? rates?.bcv?.fetchedAt
 
   // El cierre de la venta es en USD (Σ amountUsd de cada pago).
@@ -70,7 +72,7 @@ export function PaymentDialog({
   // (ese va a tasa live y hace que un abono "por el total en Bs" quede corto/largo).
   const balanceBsAtRate =
     rate && rate > 0
-      ? Math.round(sale.balanceUsd * rate * 100) / 100
+      ? round2(sale.balanceUsd * rate)
       : null
   const selectedBsRate =
     rate && rate > 0
@@ -106,9 +108,9 @@ export function PaymentDialog({
       return { amountNative: null, amountUsd: null }
     }
     if (inputMode === 'usd') {
-      return { amountNative: Math.round(n * rate * 100) / 100, amountUsd: n }
+      return { amountNative: round2(n * rate), amountUsd: n }
     }
-    return { amountNative: n, amountUsd: Math.round((n / rate) * 100) / 100 }
+    return { amountNative: n, amountUsd: round2(n / rate) }
   }, [amountInput, meta.currency, inputMode, rate])
 
   const fillLabel =
@@ -163,7 +165,7 @@ export function PaymentDialog({
       // Toast con la misma tasa del abono (no la live de updated.balanceBs).
       const remBs =
         rate && rate > 0
-          ? Math.round(updated.balanceUsd * rate * 100) / 100
+          ? round2(updated.balanceUsd * rate)
           : updated.balanceBs
       const remRate = selectedBsRate ?? updated.bsRate
       notify.success(

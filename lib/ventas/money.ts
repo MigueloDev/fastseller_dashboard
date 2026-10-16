@@ -15,6 +15,11 @@ export const PAYMENT_METHOD_META: Record<
 
 export const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_META) as PaymentMethod[]
 
+/** Mismo criterio que backend/src/sales/balance.js — tasa y montos a 2 dp. */
+export function round2(n: number): number {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100
+}
+
 // Formato venezolano: punto de miles, coma decimal (convención CLAUDE.md)
 const veMoney = new Intl.NumberFormat('es-VE', {
   minimumFractionDigits: 2,

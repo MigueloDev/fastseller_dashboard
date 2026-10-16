@@ -13,7 +13,7 @@ Al cambiar rutas, auth, contrato inbox o env, actualizar este archivo **y** el o
 |------|--------|
 | Stack | Next.js 15 App Router + React 19 + TypeScript |
 | Producto | Dashboard VictoriaLeads (inbox + productos/inventario + ventas + entregas + reportes + calculadora) |
-| Features | `/` (home métricas), `/inbox`, `/inbox/[jid]`, `/productos`, `/ventas` (+ `/nueva`, `/[id]/editar`), `/entregas` (+ `/nueva`, `/[id]/imprimir`), `/clientes`, `/reportes` (+ `/ventas`, `/divisas`, `/kardex`, `/movimientos`), `/conversiones` (compra USDT multi-venta), `/cuentas` (caja operativa), `/calculadora` |
+| Features | `/` (home métricas), `/inbox`, `/inbox/[jid]`, `/productos`, `/ventas` (+ `/nueva`, `/[id]/editar`), `/entregas` (+ `/nueva`, `/[id]/imprimir`), `/clientes`, `/usuarios` (roles), `/reportes` (+ `/ventas`, `/divisas`, `/kardex`, `/movimientos`), `/conversiones` (compra USDT multi-venta), `/cuentas` (caja operativa), `/calculadora` |
 | Placeholders | `/scouting` |
 
 ---
@@ -74,6 +74,7 @@ Dark mode: tokens existen; **no hay** toggle. Light only.
 - `middleware.ts`: `auth.protect()` en todo excepto `/sign-in(.*)` (incluye `/api/*`)
 - Sign-in: `app/sign-in/[[...sign-in]]/page.tsx`
 - Token hacia el bot: `useAuth().getToken()` → Bearer / socket. El session JWT debe traer claims `firstName` / `lastName` / `primaryEmail` (Clerk Dashboard → Sessions → Customize) para `agentName` en el backend sin `getUser`
+- Rol (`ADMIN` | `VENDEDOR`) viene de `GET /me` (tabla `staff` en el bot). Nav y guards de ruta en `(protected)/layout.tsx`. El vendedor solo `/ventas` (sin editar) y `/clientes` (sin editar). `/usuarios` lo usa el admin.
 
 ### Rutas
 
@@ -92,7 +93,8 @@ Dark mode: tokens existen; **no hay** toggle. Light only.
 | `/entregas/nueva` | `app/(protected)/entregas/nueva/page.tsx` | Crear nota (`showValue` + líneas); descuenta stock |
 | `/entregas/[id]` | `app/(protected)/entregas/[id]/page.tsx` | Detalle + anular |
 | `/entregas/[id]/imprimir` | `app/(protected)/entregas/[id]/imprimir/page.tsx` | Documento + `window.print` (PDF del browser) |
-| `/clientes` | `app/(protected)/clientes/page.tsx` | Listado + búsqueda + crear/editar (nav desktop) |
+| `/clientes` | `app/(protected)/clientes/page.tsx` | Listado + búsqueda + crear/editar (el vendedor no edita) |
+| `/usuarios` | `app/(protected)/usuarios/page.tsx` | Admin: lista staff y cambia rol |
 | `/reportes` | `app/(protected)/reportes/page.tsx` | Redirect → `/reportes/ventas`; `layout.tsx` con tabs |
 | `/reportes/ventas` | `app/(protected)/reportes/ventas/page.tsx` | Reporte de ventas por rango + filtros estado/entrega/cobro + buckets Pagadas/Abonadas/A crédito + CSV |
 | `/reportes/divisas` | `app/(protected)/reportes/divisas/page.tsx` | Conciliación Bs cobrados vs convertidos a USDT + compras del período; CSV detallado y resumen desde el backend |
@@ -259,7 +261,7 @@ El rango manual manda sobre el tab de período; limpiarlo vuelve al tab.
 | Path | Rol |
 |------|-----|
 | `app/(protected)/cuentas/page.tsx` | Cards de cuentas (alias, institución, titular, moneda, saldo) + crear |
-| `app/(protected)/cuentas/[id]/page.tsx` | Estado de cuenta: ReportRange, saldo corrido, totales gastos/préstamos, movimiento, CSV |
+| `app/(protected)/cuentas/[id]/page.tsx` | Estado de cuenta: ReportRange, saldo corrido, totales del período (entradas/salidas/cierre + gastos/préstamos), movimiento, CSV |
 | `components/cuentas/AccountFormDialog.tsx` | Crear / editar cuenta |
 | `components/cuentas/CashMovementDialog.tsx` | Intenciones: Entrada / Salida / Ajuste / Gasto / Préstamo otorgado / Cobro |
 | `components/cuentas/CashAccountSelect.tsx` | Picker filtrado por moneda + `pickDefaultAccount` |

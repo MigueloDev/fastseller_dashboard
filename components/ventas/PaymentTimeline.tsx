@@ -34,9 +34,15 @@ type Pending = { paymentId: string; file: File; previewUrl: string }
 type Props = {
   payments: Payment[]
   onSaleUpdated: (sale: Sale) => void
+  /** Cambiar, eliminar o adjuntar después. El alta del pago sigue aceptando comprobante. */
+  allowReceiptEdit?: boolean
 }
 
-export function PaymentTimeline({ payments, onSaleUpdated }: Props) {
+export function PaymentTimeline({
+  payments,
+  onSaleUpdated,
+  allowReceiptEdit = true,
+}: Props) {
   const api = useApi()
   const fileRef = useRef<HTMLInputElement>(null)
   const pendingRef = useRef<Pending | null>(null)
@@ -198,43 +204,46 @@ export function PaymentTimeline({ payments, onSaleUpdated }: Props) {
                   </span>
                 )}
                 {p.note && <span className="italic">{p.note}</span>}
-                {p.hasReceipt ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      className="rounded-sm font-medium text-violet-600 outline-none hover:text-violet-700 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50"
-                      onClick={() => setViewerId(p.id)}
-                    >
-                      Ver
-                    </button>
+                {p.hasReceipt && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="rounded-sm font-medium text-violet-600 outline-none hover:text-violet-700 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                    onClick={() => setViewerId(p.id)}
+                  >
+                    Ver
+                  </button>
+                )}
+                {allowReceiptEdit &&
+                  (p.hasReceipt ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="rounded-sm font-medium text-violet-600 outline-none hover:text-violet-700 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                        onClick={() => pickFile(p.id)}
+                      >
+                        {busy ? '…' : 'Cambiar'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="rounded-sm font-medium text-red-600 outline-none hover:text-red-700 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                        onClick={() => setDeleteId(p.id)}
+                      >
+                        Eliminar
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
                       disabled={busy}
                       className="rounded-sm font-medium text-violet-600 outline-none hover:text-violet-700 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50"
                       onClick={() => pickFile(p.id)}
                     >
-                      {busy ? '…' : 'Cambiar'}
+                      {busy ? '…' : 'Adjuntar comprobante'}
                     </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      className="rounded-sm font-medium text-red-600 outline-none hover:text-red-700 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50"
-                      onClick={() => setDeleteId(p.id)}
-                    >
-                      Eliminar
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className="rounded-sm font-medium text-violet-600 outline-none hover:text-violet-700 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50"
-                    onClick={() => pickFile(p.id)}
-                  >
-                    {busy ? '…' : 'Adjuntar comprobante'}
-                  </button>
-                )}
+                  ))}
               </div>
             </li>
           )
