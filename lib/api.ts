@@ -4,6 +4,8 @@ import type {
   CreateMovementPayload,
   CreatePaymentPayload,
   CreateSalePayload,
+  SaleChargeInput,
+  SaleDeliveryInput,
   CreateDeliveryNotePayload,
   CreateCurrencyPurchasePayload,
   CurrencyPurchasesPage,
@@ -296,6 +298,21 @@ export const api = {
 
   undeliverSale: (token: string, saleId: string) =>
     request<Sale>(`/sales/${saleId}/undeliver`, token, { method: 'POST' }),
+
+  setSaleDelivery: (token: string, saleId: string, data: SaleDeliveryInput) =>
+    request<Sale>(`/sales/${saleId}/delivery`, token, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  addSaleCharge: (token: string, saleId: string, data: SaleChargeInput) =>
+    request<Sale>(`/sales/${saleId}/charges`, token, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  deleteSaleCharge: (token: string, saleId: string, chargeId: string) =>
+    request<Sale>(`/sales/${saleId}/charges/${chargeId}`, token, { method: 'DELETE' }),
 
   getDeliveryNotes: (
     token: string,

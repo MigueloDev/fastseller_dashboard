@@ -22,6 +22,18 @@ import { PriceModeSelector } from '@/components/ventas/PriceModeSelector'
 import { SaleLineItem, type LineDraft } from '@/components/ventas/SaleLineItem'
 import { CustomerPicker } from '@/components/ventas/CustomerPicker'
 import {
+  ChargesFields,
+  DeliveryFields,
+  billedTotal,
+  chargeDraftsFromSale,
+  chargesPayload,
+  deliveryDraftFromSale,
+  deliveryPayload,
+  withCustomerAddress,
+  type ChargeDraft,
+  type DeliveryDraft,
+} from '@/components/ventas/SaleExtrasFields'
+import {
   formatBs,
   formatUsd,
   priceOf,
@@ -98,9 +110,16 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
     initialSale ? linesFromSale(initialSale) : [emptyLine()],
   )
   const [note, setNote] = useState(initialSale?.note ?? '')
+  const [delivery, setDelivery] = useState<DeliveryDraft>(() => deliveryDraftFromSale(initialSale))
+  const [charges, setCharges] = useState<ChargeDraft[]>(() => chargeDraftsFromSale(initialSale))
   const [rateId, setRateId] = useState(rateHistory[0]?.id ?? '')
   const [saving, setSaving] = useState(false)
-  const [errors, setErrors] = useState<{ customer?: string; lines?: string }>({})
+  const [errors, setErrors] = useState<{
+    customer?: string
+    lines?: string
+    delivery?: string
+    charges?: string
+  }>({})
 
   // Tasa solo para el equivalente Bs en pantalla; la venta se guarda en USD.
   const pickedRate = rateHistory.find((r) => r.id === rateId) ?? null
@@ -140,12 +159,14 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
       if (unitBs != null) totalBs += unitBs * qty
       if (unitSelected != null) selected += unitSelected * qty
     }
+    // Cargos cobrados al cliente suman al total (USD) igual que en el backend.
+    selected += billedTotal(charges)
     const equivBs =
       quoteRate && quoteRate > 0
         ? round2(selected * quoteRate)
         : null
     return { totalUsd, totalBs, selected, equivBs }
-  }, [lines, activeProducts, priceRef, quoteRate, productQtys])
+  }, [lines, activeProducts, priceRef, quoteRate, productQtys, charges])
 
   async function submit() {
     setErrors({})
@@ -192,6 +213,20 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
       return
     }
 
+    let extras
+    try {
+      extras = { delivery: deliveryPayload(delivery) }
+    } catch (err) {
+      setErrors({ delivery: err instanceof Error ? err.message : 'Revisa la entrega' })
+      return
+    }
+    try {
+      Object.assign(extras, { charges: chargesPayload(charges) })
+    } catch (err) {
+      setErrors({ charges: err instanceof Error ? err.message : 'Revisa los costos' })
+      return
+    }
+
     setSaving(true)
     try {
       const payload = {
@@ -199,6 +234,7 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
         priceRef,
         items,
         note: note.trim() || null,
+        ...extras,
       }
 
       const sale = initialSale
@@ -240,6 +276,10 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
           value={customer}
           onChange={(c) => {
             setCustomer(c)
+            // Otro cliente → su última dirección reemplaza la anterior
+            setDelivery((d) =>
+              withCustomerAddress({ ...d, address: '', reference: '', location: '' }, c),
+            )
             setErrors((e) => ({ ...e, customer: undefined }))
           }}
         />
@@ -323,6 +363,24 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
           <p className="mt-1 text-xs text-red-600">{errors.lines}</p>
         )}
       </section>
+
+      <DeliveryFields
+        value={delivery}
+        onChange={(d) => {
+          setDelivery(delivery.type === 'RETIRO' ? withCustomerAddress(d, customer) : d)
+          setErrors((e) => ({ ...e, delivery: undefined }))
+        }}
+        error={errors.delivery}
+      />
+
+      <ChargesFields
+        value={charges}
+        onChange={(c) => {
+          setCharges(c)
+          setErrors((e) => ({ ...e, charges: undefined }))
+        }}
+        error={errors.charges}
+      />
 
       <div>
         <Label>Nota (opcional)</Label>

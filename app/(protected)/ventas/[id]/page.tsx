@@ -16,6 +16,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PaymentDialog } from '@/components/ventas/PaymentDialog'
 import { PaymentTimeline } from '@/components/ventas/PaymentTimeline'
 import { DeliveryBadge } from '@/components/ventas/DeliveryBadge'
+import { SaleDeliveryCard } from '@/components/ventas/SaleDeliveryCard'
+import { SaleChargesCard } from '@/components/ventas/SaleChargesCard'
 import {
   formatBs,
   formatUsd,
@@ -286,6 +288,10 @@ export default function VentaDetailPage() {
             </p>
           )}
         </section>
+
+        <SaleChargesCard sale={sale} readOnly={seller} onSaleUpdated={setSale} />
+
+        {sale.status !== 'ANULADA' && <SaleDeliveryCard sale={sale} onSaleUpdated={setSale} />}
 
         <section>
           <h2 className="mb-2 text-lg font-medium text-gray-900">Pagos</h2>

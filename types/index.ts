@@ -271,6 +271,11 @@ export interface Customer {
   phone: string | null
   jid: string | null
   note: string | null
+  /** Última dirección de entrega usada (se precarga en ventas). lat/lng llegan como string (Decimal). */
+  address?: string | null
+  addressReference?: string | null
+  lat?: number | string | null
+  lng?: number | string | null
   active: boolean
   createdAt: string
   updatedAt: string
@@ -320,6 +325,36 @@ export interface BsRateQuote {
   fetchedAt: string
 }
 
+export type DeliveryType = 'RETIRO' | 'DELIVERY' | 'FORANEA'
+export type SaleChargeKind = 'DELIVERY' | 'ENVIO' | 'COMISION' | 'OTRO'
+
+export interface SaleCharge {
+  id: string
+  saleId: string
+  kind: SaleChargeKind
+  description: string | null
+  amountUsd: number
+  /** true → suma al total del cliente; false → gasto interno (resta ganancia) */
+  billedToCustomer: boolean
+  agentName: string | null
+  createdAt: string
+}
+
+export interface SaleChargeInput {
+  kind: SaleChargeKind
+  description?: string | null
+  amountUsd: number
+  billedToCustomer: boolean
+}
+
+export interface SaleDeliveryInput {
+  type: DeliveryType
+  address?: string | null
+  reference?: string | null
+  lat?: number | null
+  lng?: number | null
+}
+
 export interface Sale {
   id: string
   customerId: string
@@ -327,6 +362,11 @@ export interface Sale {
   deliveryStatus: DeliveryStatus
   deliveredAt: string | null
   deliveredBy: string | null
+  deliveryType: DeliveryType
+  deliveryAddress: string | null
+  deliveryReference: string | null
+  deliveryLat: number | null
+  deliveryLng: number | null
   priceRef: PriceRef
   totalUsd: number
   note: string | null
@@ -335,6 +375,7 @@ export interface Sale {
   updatedAt: string
   customer: Customer
   items: SaleItem[]
+  charges: SaleCharge[]
   payments: Payment[]
   balanceUsd: number
   balanceBs: number | null
@@ -342,6 +383,8 @@ export interface Sale {
   paymentMismatch: boolean
   /** null si falta snapshot de costo en algún ítem */
   costUsd?: number | null
+  /** Gastos internos (charges no cobrados al cliente) */
+  expensesUsd?: number
   profitUsd?: number | null
   marginPct?: number | null
 }
@@ -364,6 +407,8 @@ export interface CreateSalePayload {
     unitPriceUsd?: number
   }>
   note?: string | null
+  delivery?: SaleDeliveryInput
+  charges?: SaleChargeInput[]
 }
 
 export type DeliveryNoteStatus = 'ACTIVA' | 'ANULADA'

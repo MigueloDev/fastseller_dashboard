@@ -9,6 +9,8 @@ import type {
   CreateMovementPayload,
   CreatePaymentPayload,
   CreateSalePayload,
+  SaleChargeInput,
+  SaleDeliveryInput,
   CreateCurrencyPurchasePayload,
   CreateCashAccountPayload,
   PatchCashAccountPayload,
@@ -146,6 +148,15 @@ export function useApi() {
 
     undeliverSale: (saleId: string) =>
       withToken(token => api.undeliverSale(token, saleId)),
+
+    setSaleDelivery: (saleId: string, data: SaleDeliveryInput) =>
+      withToken(token => api.setSaleDelivery(token, saleId, data)),
+
+    addSaleCharge: (saleId: string, data: SaleChargeInput) =>
+      withToken(token => api.addSaleCharge(token, saleId, data)),
+
+    deleteSaleCharge: (saleId: string, chargeId: string) =>
+      withToken(token => api.deleteSaleCharge(token, saleId, chargeId)),
 
     getDeliveryNotes: (params?: {
       status?: string
