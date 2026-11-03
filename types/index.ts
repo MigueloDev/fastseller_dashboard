@@ -281,6 +281,26 @@ export interface Customer {
   updatedAt: string
 }
 
+export type LeadSource = 'TIKTOK' | 'INSTAGRAM' | 'FACEBOOK' | 'WHATSAPP' | 'OTRO'
+
+export interface Lead {
+  id: string
+  name: string
+  phone: string | null
+  source: LeadSource
+  lastRemindedAt: string | null
+  /** Fecha de registro. */
+  createdAt: string
+  updatedAt: string
+}
+
+export type LeadPayload = {
+  name: string
+  phone?: string | null
+  source: LeadSource
+  lastRemindedAt?: string | null
+}
+
 export type CreateCustomerPayload = {
   cedula: string
   firstName: string

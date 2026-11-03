@@ -24,6 +24,7 @@ Este archivo solo resume convenciones de UI para agentes.
 | `/ventas` | Ventas + pagos (`components/ventas/`) |
 | `/entregas` | Notas de entrega + print (`components/entregas/`) |
 | `/clientes` | Listado + editar (`components/clientes/`) |
+| `/leads` | Leads manuales de redes (CRUD, "Recordé hoy") (`components/leads/`) |
 | `/reportes` | Ventas + kardex + movimientos (`components/reportes/`, `lib/reports/`) |
 | `/calculadora` | Calculadora de importación VE |
 | `/whatsapp` | Conexión del bot vía QR (`components/whatsapp/`) |

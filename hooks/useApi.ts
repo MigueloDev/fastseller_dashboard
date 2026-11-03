@@ -5,6 +5,7 @@ import { useAuth } from '@clerk/nextjs'
 import { api } from '@/lib/api'
 import type {
   CreateCustomerPayload,
+  LeadPayload,
   CreateDeliveryNotePayload,
   CreateMovementPayload,
   CreatePaymentPayload,
@@ -109,6 +110,18 @@ export function useApi() {
         active: boolean
       }>
     ) => withToken(token => api.updateCustomer(token, id, data)),
+
+    getLeads: (q?: string) =>
+      withToken(token => api.getLeads(token, q)),
+
+    createLead: (data: LeadPayload) =>
+      withToken(token => api.createLead(token, data)),
+
+    updateLead: (id: string, data: Partial<LeadPayload>) =>
+      withToken(token => api.updateLead(token, id, data)),
+
+    deleteLead: (id: string) =>
+      withToken(token => api.deleteLead(token, id)),
 
     getSales: (params?: {
       status?: string

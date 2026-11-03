@@ -11,6 +11,8 @@ import type {
   CurrencyPurchasesPage,
   EligibleSaleForFx,
   Customer,
+  Lead,
+  LeadPayload,
   DeliveryNote,
   DeliveryNotesPage,
   ExchangeRates,
@@ -224,6 +226,20 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+
+  getLeads: (token: string, q?: string) => {
+    const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''
+    return request<Lead[]>(`/leads${qs}`, token)
+  },
+
+  createLead: (token: string, data: LeadPayload) =>
+    request<Lead>('/leads', token, { method: 'POST', body: JSON.stringify(data) }),
+
+  updateLead: (token: string, id: string, data: Partial<LeadPayload>) =>
+    request<Lead>(`/leads/${id}`, token, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  deleteLead: (token: string, id: string) =>
+    request<Lead>(`/leads/${id}`, token, { method: 'DELETE' }),
 
   getSales: (
     token: string,

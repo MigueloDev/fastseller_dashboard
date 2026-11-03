@@ -6,16 +6,22 @@ import { NavLink } from '@/components/NavLink'
 import { MeProvider, sellerPathAllowed, useMe } from '@/hooks/useMe'
 import {
   MessageCircle,
-  Calculator,
-  Package,
+  // Calculator, Package, Truck: solo los usaba la barra inferior anterior (ver abajo)
   ShoppingCart,
   Home,
-  Truck,
   Users,
+  UserPlus,
+  Menu,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 const ADMIN_LINKS = [
   { href: '/', label: 'Inicio' },
@@ -24,6 +30,7 @@ const ADMIN_LINKS = [
   { href: '/ventas', label: 'Ventas' },
   { href: '/entregas', label: 'Entregas' },
   { href: '/clientes', label: 'Clientes' },
+  { href: '/leads', label: 'Leads' },
   { href: '/reportes', label: 'Reportes' },
   { href: '/calculadora', label: 'Calculadora' },
   { href: '/whatsapp', label: 'WhatsApp' },
@@ -48,7 +55,7 @@ function MobileTab({
   icon: React.ComponentType<{ className?: string }>
 }) {
   const pathname = usePathname()
-  const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+  const active = isActive(pathname, href)
   return (
     <Link
       href={href}
@@ -60,6 +67,49 @@ function MobileTab({
       <Icon className="w-5 h-5" />
       <span className="text-[10px] font-medium">{label}</span>
     </Link>
+  )
+}
+
+function isActive(pathname: string, href: string) {
+  return href === '/' ? pathname === '/' : pathname.startsWith(href)
+}
+
+/** Tabs fijos de la barra inferior admin; el resto de ADMIN_LINKS va en "Más". */
+const ADMIN_TABS = [
+  { href: '/', label: 'Inicio', icon: Home },
+  { href: '/inbox', label: 'Chats', icon: MessageCircle },
+  { href: '/ventas', label: 'Ventas', icon: ShoppingCart },
+  { href: '/leads', label: 'Leads', icon: UserPlus },
+]
+const ADMIN_MORE = ADMIN_LINKS.filter((l) => !ADMIN_TABS.some((t) => t.href === l.href))
+
+function MoreTab() {
+  const pathname = usePathname()
+  const router = useRouter()
+  const active = ADMIN_MORE.some((l) => isActive(pathname, l.href))
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={cn(
+          'flex flex-col items-center gap-1 rounded-md focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:outline-none',
+          active ? 'text-violet-600' : 'text-gray-500'
+        )}
+      >
+        <Menu className="w-5 h-5" />
+        <span className="text-[10px] font-medium">Más</span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="end" className="min-w-44">
+        {ADMIN_MORE.map((l) => (
+          <DropdownMenuItem
+            key={l.href}
+            className={cn(isActive(pathname, l.href) && 'text-violet-700')}
+            onClick={() => router.push(l.href)}
+          >
+            {l.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -100,7 +150,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const home = seller ? '/ventas' : '/'
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-dvh flex flex-col bg-gray-50">
       <nav className="print:hidden h-12 bg-white border-b border-gray-200 flex items-center
         justify-between px-4 shrink-0 z-10">
         <div className="flex items-center gap-6">
@@ -124,8 +174,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
         {allowed ? children : null}
       </main>
 
-      <nav className="print:hidden md:hidden h-14 bg-white border-t border-gray-200 flex
-        items-center justify-around shrink-0">
+      <nav className="print:hidden md:hidden h-[calc(3.5rem+env(safe-area-inset-bottom))]
+        pb-[env(safe-area-inset-bottom)] bg-white border-t border-gray-200 flex items-center
+        justify-around shrink-0">
         {seller ? (
           <>
             <MobileTab href="/ventas" label="Ventas" icon={ShoppingCart} />
@@ -133,12 +184,18 @@ function AppShell({ children }: { children: React.ReactNode }) {
           </>
         ) : (
           <>
+            {ADMIN_TABS.map((t) => (
+              <MobileTab key={t.href} href={t.href} label={t.label} icon={t.icon} />
+            ))}
+            <MoreTab />
+            {/* Barra anterior: 6 tabs fijos, dejaba Clientes/Reportes/Cuentas… sin acceso en móvil.
             <MobileTab href="/" label="Inicio" icon={Home} />
             <MobileTab href="/inbox" label="Chats" icon={MessageCircle} />
             <MobileTab href="/productos" label="Productos" icon={Package} />
             <MobileTab href="/ventas" label="Ventas" icon={ShoppingCart} />
             <MobileTab href="/entregas" label="Entregas" icon={Truck} />
             <MobileTab href="/calculadora" label="Calc" icon={Calculator} />
+            */}
           </>
         )}
       </nav>
