@@ -1,6 +1,7 @@
 'use client'
 
 import type { ExchangeRateRow } from '@/types'
+import { SelectCombobox } from '@/components/ui/select-combobox'
 
 function optionLabel(row: ExchangeRateRow): string {
   const when = new Intl.DateTimeFormat('es-VE', {
@@ -20,17 +21,25 @@ type Props = {
 
 /** Selector de una fila histórica BCV (más reciente primero). */
 export function BcvRatePicker({ options, value, onChange }: Props) {
+  // Reemplazado por Combobox.
+  // <select
+  //   className="mt-1 h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
+  //   value={value}
+  //   onChange={(e) => onChange(e.target.value)}
+  // >
+  //   {options.map((r) => (
+  //     <option key={r.id} value={r.id}>
+  //       {optionLabel(r)}
+  //     </option>
+  //   ))}
+  // </select>
   return (
-    <select
-      className="mt-1 h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
+    <SelectCombobox
+      className="mt-1"
+      items={options.map((r) => ({ value: r.id, label: optionLabel(r) }))}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      {options.map((r) => (
-        <option key={r.id} value={r.id}>
-          {optionLabel(r)}
-        </option>
-      ))}
-    </select>
+      onChange={onChange}
+      aria-label="Tasa BCV"
+    />
   )
 }

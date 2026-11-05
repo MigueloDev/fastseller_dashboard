@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ReceiptPicker } from '@/components/ui/receipt-picker'
+import { SelectCombobox } from '@/components/ui/select-combobox'
 import {
   Dialog,
   DialogContent,
@@ -199,6 +200,7 @@ export function PaymentDialog({
         <div className="space-y-3">
           <div>
             <Label>Método</Label>
+            {/* Reemplazado por Combobox.
             <select
               className="mt-1 h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
               value={method}
@@ -222,6 +224,28 @@ export function PaymentDialog({
                 </option>
               ))}
             </select>
+            */}
+            <SelectCombobox
+              className="mt-1"
+              items={PAYMENT_METHODS.map((m) => ({
+                value: m,
+                label: `${PAYMENT_METHOD_META[m].label} (${PAYMENT_METHOD_META[m].currency})`,
+              }))}
+              value={method}
+              onChange={(value) => {
+                const next = value as PaymentMethod
+                setMethod(next)
+                setInputMode('native')
+                setAmountInput('')
+                const def = pickDefaultAccount(
+                  accounts,
+                  PAYMENT_METHOD_META[next].currency,
+                )
+                setAccountId(def?.id ?? '')
+                setErrors((er) => ({ ...er, account: undefined }))
+              }}
+              aria-label="Método de pago"
+            />
           </div>
 
           <CashAccountSelect

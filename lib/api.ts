@@ -246,6 +246,7 @@ export const api = {
     params: {
       status?: string
       delivery?: string
+      deliveryType?: string
       customerId?: string
       from?: string
       to?: string
@@ -256,6 +257,7 @@ export const api = {
     const qs = new URLSearchParams()
     if (params.status) qs.set('status', params.status)
     if (params.delivery) qs.set('delivery', params.delivery)
+    if (params.deliveryType) qs.set('deliveryType', params.deliveryType)
     if (params.customerId) qs.set('customerId', params.customerId)
     if (params.from) qs.set('from', params.from)
     if (params.to) qs.set('to', params.to)

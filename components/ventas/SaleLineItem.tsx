@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react'
 import type { Product } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { SelectCombobox } from '@/components/ui/select-combobox'
 import { formatUsd, priceOf } from '@/lib/ventas/money'
 import type { PriceRef } from '@/types'
 
@@ -59,6 +60,7 @@ export function SaleLineItem({
     <div className="grid gap-2 rounded-lg border border-gray-200 bg-white p-3 sm:grid-cols-[1fr_1fr_72px_96px_auto_auto] sm:items-end">
       <div>
         <label className="mb-1 block text-xs text-gray-500">Producto</label>
+        {/* Reemplazado por Combobox (búsqueda por nombre/SKU).
         <select
           className="h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
           value={line.productId}
@@ -78,9 +80,28 @@ export function SaleLineItem({
             </option>
           ))}
         </select>
+        */}
+        <SelectCombobox
+          items={products.map((p) => ({
+            value: p.id,
+            label: p.sku ? `${p.name} (${p.sku})` : p.name,
+          }))}
+          value={line.productId}
+          onChange={(productId) =>
+            onChange({
+              productId,
+              variantId: '',
+              unitPriceUsd: '',
+              priceLocked: false,
+            })
+          }
+          placeholder="Seleccionar…"
+          aria-label="Producto"
+        />
       </div>
       <div>
         <label className="mb-1 block text-xs text-gray-500">Variante</label>
+        {/* Reemplazado por Combobox.
         <select
           className="h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm disabled:bg-gray-50"
           value={line.variantId}
@@ -96,6 +117,15 @@ export function SaleLineItem({
             </option>
           ))}
         </select>
+        */}
+        <SelectCombobox
+          items={variants.map((v) => ({ value: v.id, label: v.name }))}
+          value={line.variantId}
+          disabled={variants.length === 0}
+          onChange={(variantId) => onChange({ variantId })}
+          placeholder={variants.length === 0 ? 'Sin variantes' : 'Seleccionar…'}
+          aria-label="Variante"
+        />
       </div>
       <div>
         <label className="mb-1 block text-xs text-gray-500">Cant.</label>

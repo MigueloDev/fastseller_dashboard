@@ -3,17 +3,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Download, FileText } from 'lucide-react'
-import type {
-  DeliveryStatus,
-  PaymentState,
-  SaleStatus,
-  SalesReport,
-} from '@/types'
+import type { DeliveryStatus, PaymentState, SalesReport } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { PageContainer } from '@/components/ui/page-header'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { SelectCombobox, type ComboboxItem } from '@/components/ui/select-combobox'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
@@ -37,6 +33,20 @@ const DELIVERY_LABEL: Record<DeliveryStatus, string> = {
   POR_ENTREGAR: 'Por entregar',
   ENTREGADA: 'Entregada',
 }
+
+const STATUS_ITEMS: ComboboxItem[] = [
+  { value: 'PENDIENTE', label: 'Pendientes' },
+  { value: 'PAGADA', label: 'Pagadas' },
+  { value: 'ANULADA', label: 'Anuladas' },
+]
+
+const PAYMENT_STATE_ITEMS: ComboboxItem[] = (
+  ['PAGADA', 'ABONADA', 'CREDITO'] as const
+).map((v) => ({ value: v, label: PAYMENT_STATE_LABEL[v] }))
+
+const DELIVERY_ITEMS: ComboboxItem[] = (
+  ['POR_ENTREGAR', 'ENTREGADA'] as const
+).map((v) => ({ value: v, label: DELIVERY_LABEL[v] }))
 
 function CobroBadge({ sale }: { sale: SalesReport['sales'][number] }) {
   if (sale.status === 'ANULADA') return <StatusBadge status="ANULADA" />
@@ -63,9 +73,9 @@ function itemsSummary(sale: SalesReport['sales'][number]): string {
 export default function ReporteVentasPage() {
   const api = useApi()
   const [range, setRange] = useState<RangeState>(DEFAULT_RANGE)
-  const [status, setStatus] = useState<SaleStatus | ''>('')
-  const [delivery, setDelivery] = useState<DeliveryStatus | ''>('')
-  const [paymentState, setPaymentState] = useState<PaymentState | ''>('')
+  const [status, setStatus] = useState<string[]>([])
+  const [delivery, setDelivery] = useState<string[]>([])
+  const [paymentState, setPaymentState] = useState<string[]>([])
   const [report, setReport] = useState<SalesReport | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -74,9 +84,9 @@ export default function ReporteVentasPage() {
     try {
       const data = await api.getSalesReport({
         ...rangeQuery(range),
-        status: status || undefined,
-        delivery: delivery || undefined,
-        paymentState: paymentState || undefined,
+        status: status.length > 0 ? status.join(',') : undefined,
+        delivery: delivery.length > 0 ? delivery.join(',') : undefined,
+        paymentState: paymentState.length > 0 ? paymentState.join(',') : undefined,
       })
       setReport(data)
     } catch (err) {
@@ -156,7 +166,7 @@ export default function ReporteVentasPage() {
   const totals = report?.totals
   const byPay = report?.byPaymentState
   const creditSales =
-    report && paymentState !== 'CREDITO'
+    report && !(paymentState.length === 1 && paymentState[0] === 'CREDITO')
       ? report.sales.filter((s) => s.paymentState === 'CREDITO')
       : []
 
@@ -165,6 +175,7 @@ export default function ReporteVentasPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ReportRange value={range} onChange={setRange} />
         <div className="flex flex-wrap items-center gap-2">
+          {/* Reemplazados por Combobox.
           <select
             className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
             value={status}
@@ -194,6 +205,34 @@ export default function ReporteVentasPage() {
             <option value="POR_ENTREGAR">Por entregar</option>
             <option value="ENTREGADA">Entregadas</option>
           </select>
+          */}
+          <SelectCombobox
+            multiple
+            className="w-40"
+            items={STATUS_ITEMS}
+            value={status}
+            onChange={setStatus}
+            placeholder="Todo estado"
+            aria-label="Filtrar por estado"
+          />
+          <SelectCombobox
+            multiple
+            className="w-40"
+            items={PAYMENT_STATE_ITEMS}
+            value={paymentState}
+            onChange={setPaymentState}
+            placeholder="Todo cobro"
+            aria-label="Filtrar por estado de cobro"
+          />
+          <SelectCombobox
+            multiple
+            className="w-40"
+            items={DELIVERY_ITEMS}
+            value={delivery}
+            onChange={setDelivery}
+            placeholder="Toda entrega"
+            aria-label="Filtrar por estado de entrega"
+          />
           <Button
             variant="outline"
             size="sm"

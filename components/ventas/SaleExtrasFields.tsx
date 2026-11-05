@@ -12,6 +12,7 @@ import type {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SelectCombobox } from '@/components/ui/select-combobox'
 import {
   CHARGE_KIND_LABEL,
   DELIVERY_TYPE_LABEL,
@@ -35,7 +36,8 @@ export type ChargeDraft = {
   billedToCustomer: boolean
 }
 
-const SELECT_CLASS = 'h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm'
+// Reemplazado por SelectCombobox; el valor queda documentado en los <select> comentados abajo.
+// const SELECT_CLASS = 'h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm'
 
 function newKey() {
   return Math.random().toString(36).slice(2, 10)
@@ -130,6 +132,7 @@ export function DeliveryFields({
       </h2>
       <div>
         <Label htmlFor="delivery-type">Tipo</Label>
+        {/* Reemplazado por Combobox.
         <select
           id="delivery-type"
           className={`mt-1 ${SELECT_CLASS}`}
@@ -142,6 +145,17 @@ export function DeliveryFields({
             </option>
           ))}
         </select>
+        */}
+        <SelectCombobox
+          items={(Object.keys(DELIVERY_TYPE_LABEL) as DeliveryType[]).map((t) => ({
+            value: t,
+            label: DELIVERY_TYPE_LABEL[t],
+          }))}
+          value={value.type}
+          onChange={(t) => onChange({ ...value, type: t as DeliveryType })}
+          className="mt-1"
+          aria-label="Tipo de entrega"
+        />
       </div>
       {value.type !== 'RETIRO' && (
         <>
@@ -230,6 +244,7 @@ export function ChargesFields({
         >
           <div>
             <label className="mb-1 block text-xs text-gray-500">Tipo</label>
+            {/* Reemplazado por Combobox.
             <select
               className={SELECT_CLASS}
               value={c.kind}
@@ -245,6 +260,20 @@ export function ChargesFields({
                 </option>
               ))}
             </select>
+            */}
+            <SelectCombobox
+              items={(Object.keys(CHARGE_KIND_LABEL) as SaleChargeKind[]).map((k) => ({
+                value: k,
+                label: CHARGE_KIND_LABEL[k],
+              }))}
+              value={c.kind}
+              onChange={(value) => {
+                const kind = value as SaleChargeKind
+                // Comisión casi siempre es gasto interno; delivery/envío suelen cobrarse.
+                patch(c.key, { kind, billedToCustomer: kind !== 'COMISION' })
+              }}
+              aria-label="Tipo de costo"
+            />
           </div>
           <div>
             <label className="mb-1 block text-xs text-gray-500">Descripción</label>

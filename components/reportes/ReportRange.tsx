@@ -1,6 +1,7 @@
 'use client'
 
 import { PeriodTabs } from '@/components/dashboard/PeriodTabs'
+import { DatePicker } from '@/components/ui/date-picker'
 import { formatYmd, localRange, type PeriodKey } from '@/lib/dashboard/period'
 
 export type RangeState = {
@@ -61,6 +62,7 @@ export function ReportRange({ value, onChange }: Props) {
         onChange={(period) => onChange({ period, fromYmd: '', toYmd: '' })}
       />
       <div className="flex items-center gap-1.5 text-sm text-gray-600">
+        {/* Reemplazado por el DatePicker de shadcn (Popover + Calendar).
         <input
           type="date"
           aria-label="Desde"
@@ -68,13 +70,26 @@ export function ReportRange({ value, onChange }: Props) {
           value={value.fromYmd}
           onChange={(e) => onChange({ ...value, fromYmd: e.target.value })}
         />
-        <span className="text-gray-400">→</span>
         <input
           type="date"
           aria-label="Hasta"
           className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
           value={value.toYmd}
           onChange={(e) => onChange({ ...value, toYmd: e.target.value })}
+        />
+        */}
+        <DatePicker
+          className="w-36"
+          aria-label="Desde"
+          value={value.fromYmd}
+          onChange={(fromYmd) => onChange({ ...value, fromYmd })}
+        />
+        <span className="text-gray-400">→</span>
+        <DatePicker
+          className="w-36"
+          aria-label="Hasta"
+          value={value.toYmd}
+          onChange={(toYmd) => onChange({ ...value, toYmd })}
         />
         {custom && (
           <button

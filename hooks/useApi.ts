@@ -126,6 +126,7 @@ export function useApi() {
     getSales: (params?: {
       status?: string
       delivery?: string
+      deliveryType?: string
       customerId?: string
       from?: string
       to?: string
