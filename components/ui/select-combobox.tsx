@@ -61,18 +61,18 @@ export function SelectCombobox(props: Props) {
       >
         <Combobox.InputGroup
           className={cn(
-            'flex min-h-9 w-full cursor-text flex-wrap items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm focus-within:ring-2 focus-within:ring-violet-500 focus-within:ring-offset-2 has-disabled:bg-gray-50',
+            'flex h-9 w-full cursor-text items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm focus-within:ring-2 focus-within:ring-violet-500 focus-within:ring-offset-2 has-disabled:bg-gray-50',
             className,
           )}
         >
-          <Combobox.Chips className="flex flex-1 flex-wrap items-center gap-1">
+          <Combobox.Chips className="flex flex-1 items-center gap-1 overflow-hidden">
             <Combobox.Value>
               {(value: string[]) => (
                 <>
-                  {value.map((v) => (
+                  {value.slice(0, 1).map((v) => (
                     <Combobox.Chip
                       key={v}
-                      className="flex h-6 items-center gap-1 rounded-md bg-violet-100 px-1.5 text-xs font-medium text-violet-900 outline-none data-highlighted:bg-violet-200"
+                      className="flex h-6 shrink-0 items-center gap-1 rounded-md bg-violet-100 px-1.5 text-xs font-medium text-violet-900 outline-none data-highlighted:bg-violet-200"
                     >
                       {byValue.get(v) ?? v}
                       <Combobox.ChipRemove
@@ -83,11 +83,16 @@ export function SelectCombobox(props: Props) {
                       </Combobox.ChipRemove>
                     </Combobox.Chip>
                   ))}
+                  {value.length > 1 && (
+                    <span className="flex h-6 shrink-0 items-center rounded-md bg-violet-100 px-1.5 text-xs font-medium text-violet-900">
+                      +{value.length - 1}
+                    </span>
+                  )}
                   <Combobox.Input
                     id={id}
                     aria-label={ariaLabel}
                     placeholder={value.length === 0 ? placeholder : ''}
-                    className="h-6 min-w-16 flex-1 border-0 bg-transparent p-0 text-sm outline-none placeholder:text-gray-400"
+                    className="h-6 min-w-10 flex-1 border-0 bg-transparent p-0 text-sm outline-none placeholder:text-gray-400"
                   />
                 </>
               )}
