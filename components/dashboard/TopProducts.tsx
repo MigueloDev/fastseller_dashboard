@@ -74,7 +74,7 @@ export function TopProducts({ products, period }: Props) {
           <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
             Ganancia
           </p>
-          <ProfitFigure value={top.profitUsd} size="lg" />
+          <ProfitFigure value={top.profitUsd ?? null} size="lg" />
         </div>
       </div>
 
@@ -89,7 +89,7 @@ export function TopProducts({ products, period }: Props) {
                     {displayName(p)}
                   </span>
                   <span className="shrink-0 text-right">
-                    <ProfitFigure value={p.profitUsd} />
+                    <ProfitFigure value={p.profitUsd ?? null} />
                   </span>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
