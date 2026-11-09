@@ -233,6 +233,7 @@ export function PaymentDialog({
               }))}
               value={method}
               onChange={(value) => {
+                if (!value) return // método obligatorio: ignorar el "clear" del combobox
                 const next = value as PaymentMethod
                 setMethod(next)
                 setInputMode('native')

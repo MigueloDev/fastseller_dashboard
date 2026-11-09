@@ -101,7 +101,7 @@ export function SelectCombobox(props: Props) {
         </Combobox.InputGroup>
 
         <Combobox.Portal>
-          <Combobox.Positioner className="outline-none" sideOffset={4}>
+          <Combobox.Positioner className="isolate z-50 outline-none" sideOffset={4}>
             <Combobox.Popup className={POPUP_CLASS}>
               <Combobox.Empty className="px-2 py-1.5 text-sm text-gray-500">
                 Sin resultados.
@@ -153,7 +153,7 @@ export function SelectCombobox(props: Props) {
       </Combobox.InputGroup>
 
       <Combobox.Portal>
-        <Combobox.Positioner className="outline-none" sideOffset={4}>
+        <Combobox.Positioner className="isolate z-50 outline-none" sideOffset={4}>
           <Combobox.Popup className={POPUP_CLASS}>
             <Combobox.Empty className="px-2 py-1.5 text-sm text-gray-500">
               Sin resultados.
