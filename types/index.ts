@@ -525,6 +525,20 @@ export interface MetricsTopProduct {
   variantName: string | null
   unitsSold: number
   revenueUsd: number
+  /** Precio − costo de la línea. null si alguna venta del grupo no tiene costo. */
+  profitUsd?: number | null
+}
+
+export interface MetricsProfit {
+  totalUsd: number | null
+  marginPct: number | null
+  knownCount: number
+  unknownCount: number
+}
+
+export interface MetricsPrevious {
+  soldUsd: number
+  profitUsd: number | null
 }
 
 export interface MetricsDayPoint {
@@ -719,6 +733,8 @@ export interface MetricsSummary {
     REF_USD: MetricsBucket
     REF_BS: MetricsBucket
   }
+  profit: MetricsProfit
+  previous: MetricsPrevious | null
   topProducts: MetricsTopProduct[]
   salesByDay: MetricsDayPoint[]
   lowStock: MetricsLowStock[]

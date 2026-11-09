@@ -14,28 +14,19 @@ import { BrechaChip } from '@/components/dashboard/BrechaChip'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { TopProducts } from '@/components/dashboard/TopProducts'
 import { SalesChart } from '@/components/dashboard/SalesChart'
+import { ProfitCard } from '@/components/dashboard/ProfitCard'
 import { LowStockAlert } from '@/components/dashboard/LowStockAlert'
 import { PageContainer, PageHeader } from '@/components/ui/page-header'
 
 function HomeSkeleton() {
   return (
     <div className="animate-pulse space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="h-28 rounded-lg border border-gray-200 bg-white p-4"
-          >
-            <div className="h-3 w-16 rounded bg-gray-100" />
-            <div className="mt-3 h-8 w-28 rounded bg-gray-100" />
-            <div className="mt-2 h-3 w-24 rounded bg-gray-50" />
-          </div>
-        ))}
+      <div className="grid gap-3 lg:grid-cols-5">
+        <div className="h-52 rounded-lg border border-gray-200 bg-white lg:col-span-2" />
+        <div className="h-52 rounded-lg border border-gray-200 bg-white lg:col-span-3" />
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="h-48 rounded-lg border border-gray-200 bg-white" />
-        <div className="h-48 rounded-lg border border-gray-200 bg-white" />
-      </div>
+      <div className="h-24 max-w-sm rounded-lg border border-gray-200 bg-white" />
+      <div className="h-48 rounded-lg border border-gray-200 bg-white" />
     </div>
   )
 }
@@ -119,28 +110,32 @@ export default function HomePage() {
 
         {!loading && !error && data && (
           <>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <MetricCard
-                label="Vendido"
-                value={formatUsd(data.sold.totalUsd)}
-                sub={
-                  <>
-                    <span>
-                      {data.sold.count} venta
-                      {data.sold.count === 1 ? '' : 's'}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-gray-400">
-                      Divisas {formatUsd(data.byPriceRef.REF_USD.totalUsd)} · Bs{' '}
-                      {formatUsd(data.byPriceRef.REF_BS.totalUsd)}
-                    </span>
-                  </>
-                }
-              />
-              <MetricCard
-                label="Cobrado"
-                value={formatUsd(data.collected.totalUsd)}
-                sub={`${data.collected.count} pago${data.collected.count === 1 ? '' : 's'}`}
-              />
+            <div className="grid items-stretch gap-3 lg:grid-cols-5">
+              <div className="h-full lg:col-span-2">
+                <ProfitCard
+                  profit={data.profit}
+                  previousUsd={data.previous?.profitUsd ?? null}
+                  period={period}
+                  salesCount={data.sold.count}
+                />
+              </div>
+              <div className="h-full lg:col-span-3">
+                <SalesChart
+                  points={data.salesByDay}
+                  period={period}
+                  from={chartRange.from}
+                  to={chartRange.to}
+                  totalUsd={data.sold.totalUsd}
+                  count={data.sold.count}
+                  collectedUsd={data.collected.totalUsd}
+                  previousUsd={data.previous?.soldUsd ?? null}
+                  refUsd={data.byPriceRef.REF_USD.totalUsd}
+                  refBs={data.byPriceRef.REF_BS.totalUsd}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:max-w-sm">
               <MetricCard
                 label="Por cobrar"
                 value={formatUsd(data.receivables.totalUsd)}
@@ -157,15 +152,7 @@ export default function HomePage() {
 
             <LowStockAlert items={data.lowStock} />
 
-            <div className="grid gap-3 lg:grid-cols-2">
-              <TopProducts products={data.topProducts} period={period} />
-              <SalesChart
-                points={data.salesByDay}
-                period={period}
-                from={chartRange.from}
-                to={chartRange.to}
-              />
-            </div>
+            <TopProducts products={data.topProducts} period={period} />
           </>
         )}
       </PageContainer>

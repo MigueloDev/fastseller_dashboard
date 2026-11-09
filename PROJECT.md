@@ -159,12 +159,14 @@ flowchart TD
 
 | Path | Rol |
 |------|-----|
-| `app/(protected)/page.tsx` | PeriodTabs + BrechaChip + MetricCards + widgets |
+| `app/(protected)/page.tsx` | PeriodTabs + BrechaChip + ganancia + barras de vendido + por cobrar + más vendidos |
 | `components/dashboard/PeriodTabs.tsx` | Hoy / Semana / Mes / Todo |
 | `components/dashboard/BrechaChip.tsx` | Chip gap % → dropdown BCV/Binance/brecha + link `/calculadora` |
 | `components/dashboard/MetricCard.tsx` | Número grande reusable |
-| `components/dashboard/TopProducts.tsx` | #1 + top 5 con barras |
-| `components/dashboard/SalesChart.tsx` | Barras por día (divs, sin chart lib) |
+| `components/dashboard/ProfitCard.tsx` | Ganancia del período, margen y variación |
+| `components/dashboard/TopProducts.tsx` | Top 5 por unidades + ganancia de línea |
+| `components/dashboard/SalesChart.tsx` | Vendido: cifra, variación y barras (última en violeta) |
+| `components/dashboard/PeriodDelta.tsx` | % contra la ventana anterior |
 | `components/dashboard/LowStockAlert.tsx` | Alerta condicional → `/productos` |
 | `lib/dashboard/period.ts` | `rangeForPeriod` → `from`/`to` ISO |
 | `lib/api.ts` / `hooks/useApi.ts` | `getMetricsSummary` |
