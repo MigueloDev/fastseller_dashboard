@@ -87,7 +87,7 @@ export default function HomePage() {
           title="Inicio"
           actions={
             <>
-              <BrechaChip rates={rates} loading={ratesLoading} />
+              <BrechaChip rates={rates} loading={ratesLoading} onRatesChange={setRates} />
               <PeriodTabs value={period} onChange={setPeriod} />
             </>
           }
