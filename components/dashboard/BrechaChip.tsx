@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+// import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown } from 'lucide-react'
 import type { ExchangeRates, RateQuote } from '@/types'
@@ -15,14 +15,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { UpdateRateDialog } from '@/components/dashboard/UpdateRateDialog'
+// Botón movido a Inicio (page.tsx), visible siempre.
+// import { UpdateRateDialog } from '@/components/dashboard/UpdateRateDialog'
 
 type Props = {
   rates: ExchangeRates | null
   loading?: boolean
   className?: string
-  /** Si se pasa, muestra "Actualizar tasa BCV" (solo vistas ADMIN). */
-  onRatesChange?: (rates: ExchangeRates) => void
+  // /** Si se pasa, muestra "Actualizar tasa BCV" (solo vistas ADMIN). */
+  // onRatesChange?: (rates: ExchangeRates) => void
 }
 
 function formatRate(n: number): string {
@@ -64,9 +65,9 @@ function RateRow({
   )
 }
 
-export function BrechaChip({ rates, loading = false, className, onRatesChange }: Props) {
+export function BrechaChip({ rates, loading = false, className }: Props) {
   const router = useRouter()
-  const [updateOpen, setUpdateOpen] = useState(false)
+  // const [updateOpen, setUpdateOpen] = useState(false)
   const label = gapLabel(rates, loading)
   const ready = !loading && rates != null
 
@@ -82,7 +83,6 @@ export function BrechaChip({ rates, loading = false, className, onRatesChange }:
   }
 
   return (
-    <>
     <DropdownMenu>
       <DropdownMenuTrigger className={triggerClass}>
         {label}
@@ -108,24 +108,23 @@ export function BrechaChip({ rates, loading = false, className, onRatesChange }:
         >
           Abrir calculadora
         </DropdownMenuItem>
-        {onRatesChange && (
+        {/* {onRatesChange && (
           <DropdownMenuItem
             className="cursor-pointer text-violet-700 focus:text-violet-700"
             onClick={() => setUpdateOpen(true)}
           >
             Actualizar tasa BCV
           </DropdownMenuItem>
-        )}
+        )} */}
       </DropdownMenuContent>
     </DropdownMenu>
-    {onRatesChange && (
-      <UpdateRateDialog
-        open={updateOpen}
-        current={rates.bcv}
-        onOpenChange={setUpdateOpen}
-        onUpdated={onRatesChange}
-      />
-    )}
-    </>
+    // {onRatesChange && (
+    //   <UpdateRateDialog
+    //     open={updateOpen}
+    //     current={rates.bcv}
+    //     onOpenChange={setUpdateOpen}
+    //     onUpdated={onRatesChange}
+    //   />
+    // )}
   )
 }

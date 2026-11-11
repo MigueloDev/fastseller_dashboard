@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { RefreshCw } from 'lucide-react'
 import type { ExchangeRates, MetricsSummary } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import {
@@ -11,6 +12,8 @@ import {
 import { formatBs, formatUsd } from '@/lib/ventas/money'
 import { PeriodTabs } from '@/components/dashboard/PeriodTabs'
 import { BrechaChip } from '@/components/dashboard/BrechaChip'
+import { UpdateRateDialog } from '@/components/dashboard/UpdateRateDialog'
+import { Button } from '@/components/ui/button'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { TopProducts } from '@/components/dashboard/TopProducts'
 import { SalesChart } from '@/components/dashboard/SalesChart'
@@ -39,6 +42,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null)
   const [rates, setRates] = useState<ExchangeRates | null>(null)
   const [ratesLoading, setRatesLoading] = useState(true)
+  const [rateDialogOpen, setRateDialogOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -87,10 +91,21 @@ export default function HomePage() {
           title="Inicio"
           actions={
             <>
-              <BrechaChip rates={rates} loading={ratesLoading} onRatesChange={setRates} />
+              <Button variant="outline" size="sm" onClick={() => setRateDialogOpen(true)}>
+                <RefreshCw />
+                Actualizar tasa
+              </Button>
+              <BrechaChip rates={rates} loading={ratesLoading} />
               <PeriodTabs value={period} onChange={setPeriod} />
             </>
           }
+        />
+
+        <UpdateRateDialog
+          open={rateDialogOpen}
+          current={rates?.bcv ?? null}
+          onOpenChange={setRateDialogOpen}
+          onUpdated={setRates}
         />
 
         {loading && <HomeSkeleton />}
