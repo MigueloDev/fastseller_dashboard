@@ -65,6 +65,9 @@ export function useApi() {
 
     getRates: () => withToken(token => api.getRates(token)),
 
+    updateRate: (body: { source: 'BCV' | 'BINANCE'; rate?: number }) =>
+      withToken(token => api.updateRate(token, body)),
+
     getRatesHistory: (limit = 24) =>
       withToken(token => api.getRatesHistory(token, limit)),
 

@@ -145,6 +145,13 @@ export const api = {
 
   getRates: (token: string) => request<ExchangeRates>('/rates', token),
 
+  /** Sin `rate` refresca desde upstream; con `rate` guarda manual (solo ADMIN). */
+  updateRate: (token: string, body: { source: 'BCV' | 'BINANCE'; rate?: number }) =>
+    request<ExchangeRates & { stored: boolean }>('/rates', token, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   getRatesHistory: (token: string, limit = 24) =>
     request<RatesHistoryResponse>(
       `/rates/history?source=BCV&limit=${limit}`,
