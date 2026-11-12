@@ -27,6 +27,7 @@ import type {
   Sale,
   SalesPage,
   SalesReport,
+  PaymentsReport,
   FxReport,
   KardexReport,
   ProductMovementsReport,
@@ -404,6 +405,8 @@ export const api = {
       delivery?: string
       customerId?: string
       paymentState?: string
+      method?: string
+      accountId?: string
     } = {}
   ) => {
     const qs = new URLSearchParams()
@@ -413,9 +416,26 @@ export const api = {
     if (params.delivery) qs.set('delivery', params.delivery)
     if (params.customerId) qs.set('customerId', params.customerId)
     if (params.paymentState) qs.set('paymentState', params.paymentState)
+    if (params.method) qs.set('method', params.method)
+    if (params.accountId) qs.set('accountId', params.accountId)
     const query = qs.toString()
     return request<SalesReport>(
       `/reports/sales${query ? `?${query}` : ''}`,
+      token
+    )
+  },
+
+  getPaymentsReport: (
+    token: string,
+    params: { from?: string; to?: string; method?: string } = {}
+  ) => {
+    const qs = new URLSearchParams()
+    if (params.from) qs.set('from', params.from)
+    if (params.to) qs.set('to', params.to)
+    if (params.method) qs.set('method', params.method)
+    const query = qs.toString()
+    return request<PaymentsReport>(
+      `/reports/payments${query ? `?${query}` : ''}`,
       token
     )
   },

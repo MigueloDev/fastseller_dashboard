@@ -205,7 +205,12 @@ export function useApi() {
       delivery?: string
       customerId?: string
       paymentState?: string
+      method?: string
+      accountId?: string
     }) => withToken(token => api.getSalesReport(token, params)),
+
+    getPaymentsReport: (params?: { from?: string; to?: string; method?: string }) =>
+      withToken(token => api.getPaymentsReport(token, params)),
 
     getFxReport: (params?: { from?: string; to?: string }) =>
       withToken(token => api.getFxReport(token, params)),

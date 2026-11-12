@@ -2,14 +2,20 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Download, FileText } from 'lucide-react'
-import type { DeliveryStatus, PaymentState, SalesReport } from '@/types'
+import { ChevronDown, Download, FileText, SlidersHorizontal } from 'lucide-react'
+import type { CashAccount, DeliveryStatus, PaymentState, SalesReport } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { notify } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { PageContainer } from '@/components/ui/page-header'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { SelectCombobox, type ComboboxItem } from '@/components/ui/select-combobox'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
@@ -19,7 +25,12 @@ import {
   rangeQuery,
   type RangeState,
 } from '@/components/reportes/ReportRange'
-import { formatBs, formatUsd } from '@/lib/ventas/money'
+import {
+  PAYMENT_METHOD_META,
+  PAYMENT_METHODS,
+  formatBs,
+  formatUsd,
+} from '@/lib/ventas/money'
 import { formatDateTime } from '@/lib/format'
 import { csvDateTime, downloadCsv, toCsv } from '@/lib/reports/csv'
 
@@ -43,6 +54,11 @@ const STATUS_ITEMS: ComboboxItem[] = [
 const PAYMENT_STATE_ITEMS: ComboboxItem[] = (
   ['PAGADA', 'ABONADA', 'CREDITO'] as const
 ).map((v) => ({ value: v, label: PAYMENT_STATE_LABEL[v] }))
+
+const METHOD_ITEMS: ComboboxItem[] = PAYMENT_METHODS.map((m) => ({
+  value: m,
+  label: PAYMENT_METHOD_META[m].label,
+}))
 
 const DELIVERY_ITEMS: ComboboxItem[] = (
   ['POR_ENTREGAR', 'ENTREGADA'] as const
@@ -76,8 +92,26 @@ export default function ReporteVentasPage() {
   const [status, setStatus] = useState<string[]>([])
   const [delivery, setDelivery] = useState<string[]>([])
   const [paymentState, setPaymentState] = useState<string[]>([])
+  const [method, setMethod] = useState<string[]>([])
+  const [accountId, setAccountId] = useState<string[]>([])
+  const [accounts, setAccounts] = useState<CashAccount[]>([])
   const [report, setReport] = useState<SalesReport | null>(null)
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    api
+      .getCashAccounts()
+      .then(setAccounts)
+      .catch((err) =>
+        notify.error(err instanceof Error ? err.message : 'Error cargando cuentas'),
+      )
+  }, [api])
+
+  const accountItems: ComboboxItem[] = accounts.map((a) => ({
+    value: a.id,
+    label: `${a.alias} · ${a.currency}${a.active ? '' : ' (inactiva)'}`,
+  }))
+  const advancedCount = method.length + accountId.length
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -87,6 +121,8 @@ export default function ReporteVentasPage() {
         status: status.length > 0 ? status.join(',') : undefined,
         delivery: delivery.length > 0 ? delivery.join(',') : undefined,
         paymentState: paymentState.length > 0 ? paymentState.join(',') : undefined,
+        method: method.length > 0 ? method.join(',') : undefined,
+        accountId: accountId.length > 0 ? accountId.join(',') : undefined,
       })
       setReport(data)
     } catch (err) {
@@ -94,7 +130,7 @@ export default function ReporteVentasPage() {
     } finally {
       setLoading(false)
     }
-  }, [api, range, status, delivery, paymentState])
+  }, [api, range, status, delivery, paymentState, method, accountId])
 
   useEffect(() => {
     void load()
@@ -172,78 +208,143 @@ export default function ReporteVentasPage() {
 
   return (
     <PageContainer wide>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <ReportRange value={range} onChange={setRange} />
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Reemplazados por Combobox.
-          <select
-            className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as SaleStatus | '')}
-          >
-            <option value="">Todo estado</option>
-            <option value="PENDIENTE">Pendientes</option>
-            <option value="PAGADA">Pagadas</option>
-            <option value="ANULADA">Anuladas</option>
-          </select>
-          <select
-            className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
-            value={paymentState}
-            onChange={(e) => setPaymentState(e.target.value as PaymentState | '')}
-          >
-            <option value="">Todo cobro</option>
-            <option value="PAGADA">Pagadas</option>
-            <option value="ABONADA">Abonadas</option>
-            <option value="CREDITO">A crédito</option>
-          </select>
-          <select
-            className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
-            value={delivery}
-            onChange={(e) => setDelivery(e.target.value as DeliveryStatus | '')}
-          >
-            <option value="">Toda entrega</option>
-            <option value="POR_ENTREGAR">Por entregar</option>
-            <option value="ENTREGADA">Entregadas</option>
-          </select>
-          */}
-          <SelectCombobox
-            multiple
-            className="w-40"
-            items={STATUS_ITEMS}
-            value={status}
-            onChange={setStatus}
-            placeholder="Todo estado"
-            aria-label="Filtrar por estado"
-          />
-          <SelectCombobox
-            multiple
-            className="w-40"
-            items={PAYMENT_STATE_ITEMS}
-            value={paymentState}
-            onChange={setPaymentState}
-            placeholder="Todo cobro"
-            aria-label="Filtrar por estado de cobro"
-          />
-          <SelectCombobox
-            multiple
-            className="w-40"
-            items={DELIVERY_ITEMS}
-            value={delivery}
-            onChange={setDelivery}
-            placeholder="Toda entrega"
-            aria-label="Filtrar por estado de entrega"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportCsv}
-            disabled={!report || report.sales.length === 0}
-          >
-            <Download className="size-4" />
-            CSV
-          </Button>
+      <Collapsible className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <ReportRange value={range} onChange={setRange} />
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Reemplazados por Combobox.
+            <select
+              className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as SaleStatus | '')}
+            >
+              <option value="">Todo estado</option>
+              <option value="PENDIENTE">Pendientes</option>
+              <option value="PAGADA">Pagadas</option>
+              <option value="ANULADA">Anuladas</option>
+            </select>
+            <select
+              className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
+              value={paymentState}
+              onChange={(e) => setPaymentState(e.target.value as PaymentState | '')}
+            >
+              <option value="">Todo cobro</option>
+              <option value="PAGADA">Pagadas</option>
+              <option value="ABONADA">Abonadas</option>
+              <option value="CREDITO">A crédito</option>
+            </select>
+            <select
+              className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
+              value={delivery}
+              onChange={(e) => setDelivery(e.target.value as DeliveryStatus | '')}
+            >
+              <option value="">Toda entrega</option>
+              <option value="POR_ENTREGAR">Por entregar</option>
+              <option value="ENTREGADA">Entregadas</option>
+            </select>
+            */}
+            <SelectCombobox
+              multiple
+              className="w-40"
+              items={STATUS_ITEMS}
+              value={status}
+              onChange={setStatus}
+              placeholder="Todo estado"
+              aria-label="Filtrar por estado"
+            />
+            <SelectCombobox
+              multiple
+              className="w-40"
+              items={PAYMENT_STATE_ITEMS}
+              value={paymentState}
+              onChange={setPaymentState}
+              placeholder="Todo cobro"
+              aria-label="Filtrar por estado de cobro"
+            />
+            <SelectCombobox
+              multiple
+              className="w-40"
+              items={DELIVERY_ITEMS}
+              value={delivery}
+              onChange={setDelivery}
+              placeholder="Toda entrega"
+              aria-label="Filtrar por estado de entrega"
+            />
+            <CollapsibleTrigger
+              render={
+                <Button variant="outline" size="sm" className="group">
+                  <SlidersHorizontal className="size-4" />
+                  Pagos
+                  {advancedCount > 0 && (
+                    <span className="rounded-full bg-violet-100 px-1.5 text-xs tabular-nums text-violet-700">
+                      {advancedCount}
+                    </span>
+                  )}
+                  <ChevronDown className="size-4 transition-transform group-data-[panel-open]:rotate-180" />
+                </Button>
+              }
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportCsv}
+              disabled={!report || report.sales.length === 0}
+            >
+              <Download className="size-4" />
+              CSV
+            </Button>
+          </div>
         </div>
-      </div>
+        <CollapsibleContent className="rounded-lg border border-gray-200 bg-white p-3">
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <Field>
+              <FieldLabel htmlFor="filtro-metodo">Método de pago</FieldLabel>
+              <SelectCombobox
+                multiple
+                id="filtro-metodo"
+                items={METHOD_ITEMS}
+                value={method}
+                onChange={setMethod}
+                placeholder="Todo método"
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="filtro-cuenta">Cuenta</FieldLabel>
+              <SelectCombobox
+                multiple
+                id="filtro-cuenta"
+                items={accountItems}
+                value={accountId}
+                onChange={setAccountId}
+                placeholder="Toda cuenta"
+              />
+            </Field>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={advancedCount === 0}
+              onClick={() => {
+                setMethod([])
+                setAccountId([])
+              }}
+            >
+              Limpiar
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            Muestra ventas con al menos un pago que cumpla ambos filtros.
+            {advancedCount > 0 && totals && (
+              <>
+                {' '}Cobrado en el período con esos pagos:{' '}
+                <span className="font-medium tabular-nums text-green-700">
+                  {formatUsd(totals.collectedUsd)}
+                </span>
+                {` (${totals.collectedCount} pago${totals.collectedCount === 1 ? '' : 's'})`}
+              </>
+            )}
+          </p>
+        </CollapsibleContent>
+      </Collapsible>
 
       {totals && byPay && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
