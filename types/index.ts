@@ -590,6 +590,8 @@ export interface SalesReport {
     delivery: DeliveryStatus | null
     customerId: string | null
     paymentState: PaymentState | null
+    method: string | null
+    accountId: string | null
   }
   totals: {
     count: number
@@ -613,6 +615,36 @@ export interface SalesReport {
   }
   byProduct: MetricsTopProduct[]
   sales: SalesReportItem[]
+}
+
+export interface PaymentsReportRow {
+  id: string
+  paidAt: string
+  saleId: string
+  customerName: string
+  customerCedula: string | null
+  method: PaymentMethod
+  currency: PaymentCurrency
+  /** En la moneda del pago (Bs o USD). */
+  amount: number
+  amountUsd: number
+  rateUsed: number | null
+  accountAlias: string | null
+  agentName: string | null
+}
+
+export interface PaymentsReport {
+  period: { from: string | null; to: string | null }
+  filters: { method: string | null }
+  totals: { count: number; amountUsd: number }
+  byMethod: Array<{
+    method: PaymentMethod
+    currency: PaymentCurrency
+    count: number
+    amount: number
+    amountUsd: number
+  }>
+  payments: PaymentsReportRow[]
 }
 
 export interface FxReportSale {
