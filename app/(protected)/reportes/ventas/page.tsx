@@ -33,6 +33,7 @@ import {
 } from '@/lib/ventas/money'
 import { formatDateTime } from '@/lib/format'
 import { csvDateTime, downloadCsv, toCsv } from '@/lib/reports/csv'
+import { cn } from '@/lib/utils'
 
 const PAYMENT_STATE_LABEL: Record<PaymentState, string> = {
   PAGADA: 'Pagada',
@@ -138,6 +139,7 @@ export default function ReporteVentasPage() {
 
   function exportCsv() {
     if (!report || report.sales.length === 0) return
+    const csvFiltered = report.totals.collectedFilteredUsd != null
     let csv = toCsv(
       [
         'Fecha',
@@ -150,6 +152,7 @@ export default function ReporteVentasPage() {
         'Entrega',
         'Total USD',
         'Cobrado USD',
+        ...(csvFiltered ? ['Cobrado filtro USD'] : []),
         'Saldo USD',
         'Agente',
       ],
@@ -164,6 +167,7 @@ export default function ReporteVentasPage() {
         DELIVERY_LABEL[sale.deliveryStatus],
         sale.totalUsd.toFixed(2),
         sale.collectedUsd.toFixed(2),
+        ...(csvFiltered ? [(sale.collectedFilteredUsd ?? 0).toFixed(2)] : []),
         sale.balanceUsd.toFixed(2),
         sale.agentName ?? '',
       ]),
@@ -201,6 +205,11 @@ export default function ReporteVentasPage() {
 
   const totals = report?.totals
   const byPay = report?.byPaymentState
+  const filteredUsd = totals?.collectedFilteredUsd ?? null
+  const filterLabel = [
+    ...METHOD_ITEMS.filter((i) => method.includes(i.value)).map((i) => i.label),
+    ...accounts.filter((a) => accountId.includes(a.id)).map((a) => a.alias),
+  ].join(' · ')
   const creditSales =
     report && !(paymentState.length === 1 && paymentState[0] === 'CREDITO')
       ? report.sales.filter((s) => s.paymentState === 'CREDITO')
@@ -347,7 +356,12 @@ export default function ReporteVentasPage() {
       </Collapsible>
 
       {totals && byPay && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div
+          className={cn(
+            'grid grid-cols-2 gap-3',
+            filteredUsd != null ? 'sm:grid-cols-5' : 'sm:grid-cols-4',
+          )}
+        >
           <SummaryCard
             label="Vendidas"
             usd={totals.totalUsd}
@@ -372,6 +386,14 @@ export default function ReporteVentasPage() {
             bs={null}
             hint={`${byPay.CREDITO.count} venta${byPay.CREDITO.count === 1 ? '' : 's'} sin pago`}
           />
+          {filteredUsd != null && (
+            <SummaryCard
+              label="Cobrado según filtro"
+              usd={filteredUsd}
+              bs={null}
+              hint={filterLabel || 'Pagos filtrados'}
+            />
+          )}
         </div>
       )}
 
@@ -393,6 +415,9 @@ export default function ReporteVentasPage() {
                   <th className="px-3 py-2 font-medium">Ítems</th>
                   <th className="px-3 py-2 text-right font-medium">Total</th>
                   <th className="px-3 py-2 text-right font-medium">Cobrado</th>
+                  {filteredUsd != null && (
+                    <th className="px-3 py-2 text-right font-medium">Cobrado filtro</th>
+                  )}
                   <th className="px-3 py-2 text-right font-medium">Saldo</th>
                   <th className="px-3 py-2 font-medium">Estado</th>
                   <th className="px-3 py-2 font-medium">Entrega</th>
@@ -419,6 +444,11 @@ export default function ReporteVentasPage() {
                     <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-green-700">
                       {formatUsd(sale.collectedUsd)}
                     </td>
+                    {filteredUsd != null && (
+                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-violet-700">
+                        {formatUsd(sale.collectedFilteredUsd ?? 0)}
+                      </td>
+                    )}
                     <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-amber-800">
                       {sale.status === 'ANULADA' ? '—' : formatUsd(sale.balanceUsd)}
                     </td>
@@ -449,6 +479,11 @@ export default function ReporteVentasPage() {
                     <td className="px-3 py-2 text-right tabular-nums text-green-700">
                       {formatUsd(totals.collectedUsd)}
                     </td>
+                    {filteredUsd != null && (
+                      <td className="px-3 py-2 text-right tabular-nums text-violet-700">
+                        {formatUsd(filteredUsd)}
+                      </td>
+                    )}
                     <td className="px-3 py-2 text-right tabular-nums text-amber-800">
                       {formatUsd(totals.balanceUsd)}
                     </td>
