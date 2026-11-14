@@ -576,6 +576,8 @@ export interface SalesReportItem {
   }>
   totalUsd: number
   collectedUsd: number
+  /** Solo pagos que cumplen filtro método/cuenta; null sin ese filtro. */
+  collectedFilteredUsd: number | null
   balanceUsd: number
   paymentsCount: number
   paymentState: PaymentState | null
@@ -600,6 +602,7 @@ export interface SalesReport {
     totalUsd: number
     collectedUsd: number
     collectedCount: number
+    collectedFilteredUsd: number | null
     balanceUsd: number
     totalBs: number | null
     collectedBs: number | null
