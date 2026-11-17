@@ -34,6 +34,12 @@ import {
   type DeliveryDraft,
 } from '@/components/ventas/SaleExtrasFields'
 import {
+  LayawayFields,
+  layawayDraftFromSale,
+  layawayPayload,
+  type LayawayDraft,
+} from '@/components/ventas/LayawayFields'
+import {
   formatBs,
   formatUsd,
   priceOf,
@@ -112,6 +118,7 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
   const [note, setNote] = useState(initialSale?.note ?? '')
   const [delivery, setDelivery] = useState<DeliveryDraft>(() => deliveryDraftFromSale(initialSale))
   const [charges, setCharges] = useState<ChargeDraft[]>(() => chargeDraftsFromSale(initialSale))
+  const [layaway, setLayaway] = useState<LayawayDraft>(() => layawayDraftFromSale(initialSale))
   const [rateId, setRateId] = useState(rateHistory[0]?.id ?? '')
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<{
@@ -119,6 +126,7 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
     lines?: string
     delivery?: string
     charges?: string
+    layaway?: string
   }>({})
 
   // Tasa solo para el equivalente Bs en pantalla; la venta se guarda en USD.
@@ -224,6 +232,12 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
       Object.assign(extras, { charges: chargesPayload(charges) })
     } catch (err) {
       setErrors({ charges: err instanceof Error ? err.message : 'Revisa los costos' })
+      return
+    }
+    try {
+      Object.assign(extras, { layaway: layawayPayload(layaway, round2(totals.selected)) })
+    } catch (err) {
+      setErrors({ layaway: err instanceof Error ? err.message : 'Revisa el apartado' })
       return
     }
 
@@ -380,6 +394,16 @@ export function SaleForm({ products, rates, rateHistory, initialSale }: Props) {
           setErrors((e) => ({ ...e, charges: undefined }))
         }}
         error={errors.charges}
+      />
+
+      <LayawayFields
+        value={layaway}
+        onChange={(l) => {
+          setLayaway(l)
+          setErrors((e) => ({ ...e, layaway: undefined }))
+        }}
+        totalUsd={round2(totals.selected)}
+        error={errors.layaway}
       />
 
       <div>

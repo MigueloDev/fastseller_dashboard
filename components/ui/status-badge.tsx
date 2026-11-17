@@ -18,11 +18,14 @@ const STATUS_MAP: Record<string, { tone: StatusTone; label: string }> = {
   CREDITO: { tone: "pending", label: "A crédito" },
   POR_ENTREGAR: { tone: "pending", label: "Por entregar" },
   AJUSTE: { tone: "pending", label: "Ajuste" },
+  PARCIAL: { tone: "pending", label: "Parcial" },
   PAGADA: { tone: "success", label: "Pagada" },
   ENTREGADA: { tone: "success", label: "Entregada" },
   ACTIVA: { tone: "success", label: "Activa" },
   ENTRADA: { tone: "success", label: "Entrada" },
   ANULADA: { tone: "error", label: "Anulada" },
+  SIN_PAGO: { tone: "error", label: "Sin pago" },
+  VENCIDO: { tone: "error", label: "Vencido" },
   SALIDA: { tone: "error", label: "Salida" },
 }
 

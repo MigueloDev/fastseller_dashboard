@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, Download, Pencil, Plus, Wallet } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, Download, Pencil, Plus, Wallet } from 'lucide-react'
 import type { CashAccountDetail } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import { notify } from '@/lib/toast'
@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { AccountFormDialog } from '@/components/cuentas/AccountFormDialog'
 import { CashMovementDialog } from '@/components/cuentas/CashMovementDialog'
+import { CashTransferDialog } from '@/components/cuentas/CashTransferDialog'
 import {
   DEFAULT_RANGE,
   rangeLabel,
@@ -32,6 +33,7 @@ function money(currency: 'BS' | 'USD', n: number) {
 function originLabel(m: CashAccountDetail['movements'][number]) {
   if (m.paymentId) return 'Pago'
   if (m.currencyPurchaseId) return 'Conversión'
+  if (m.transferId) return 'Transferencia'
   if (m.reason === 'GASTO') return 'Gasto'
   if (m.reason === 'PRESTAMO') {
     return m.type === 'SALIDA' ? 'Préstamo otorgado' : 'Cobro préstamo'
@@ -47,6 +49,7 @@ export default function CuentaDetailPage() {
   const [loading, setLoading] = useState(true)
   const [formOpen, setFormOpen] = useState(false)
   const [moveOpen, setMoveOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -143,6 +146,16 @@ export default function CuentaDetailPage() {
                     <Download className="size-4" />
                     CSV
                   </Button>
+                  {detail.active && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTransferOpen(true)}
+                    >
+                      <ArrowLeftRight className="size-4" />
+                      Transferir
+                    </Button>
+                  )}
                   <Button
                     variant="primary"
                     size="sm"
@@ -341,6 +354,12 @@ export default function CuentaDetailPage() {
             accountId={detail.id}
             currency={detail.currency}
             onOpenChange={setMoveOpen}
+            onSaved={() => void load()}
+          />
+          <CashTransferDialog
+            open={transferOpen}
+            onOpenChange={setTransferOpen}
+            defaultFromAccountId={detail.id}
             onSaved={() => void load()}
           />
         </>
