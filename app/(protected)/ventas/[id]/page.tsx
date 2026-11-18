@@ -14,6 +14,8 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PaymentDialog } from '@/components/ventas/PaymentDialog'
+import { ApartadoPaymentDialog } from '@/components/ventas/ApartadoPaymentDialog'
+import { LayawayCard } from '@/components/ventas/LayawayCard'
 import { PaymentTimeline } from '@/components/ventas/PaymentTimeline'
 import { DeliveryBadge } from '@/components/ventas/DeliveryBadge'
 import { SaleDeliveryCard } from '@/components/ventas/SaleDeliveryCard'
@@ -163,7 +165,8 @@ export default function VentaDetailPage() {
   const canPay = sale.status === 'PENDIENTE'
   const canVoid = sale.status === 'PENDIENTE' && sale.payments.length === 0
   const canEdit = !seller && canVoid && undelivered
-  const canDeliver = sale.status !== 'ANULADA' && undelivered
+  // Apartado: se entrega con el pago total (cláusula QUINTA; el backend también lo valida).
+  const canDeliver = sale.status !== 'ANULADA' && undelivered && (!sale.layaway || sale.status === 'PAGADA')
   const canUndeliver = !seller && sale.status !== 'ANULADA' && !undelivered
   const canVoidSale = !seller && canVoid
 
@@ -293,6 +296,8 @@ export default function VentaDetailPage() {
 
         {sale.status !== 'ANULADA' && <SaleDeliveryCard sale={sale} onSaleUpdated={setSale} />}
 
+        <LayawayCard sale={sale} />
+
         <section>
           <h2 className="mb-2 text-lg font-medium text-gray-900">Pagos</h2>
           <PaymentTimeline
@@ -349,14 +354,25 @@ export default function VentaDetailPage() {
         </div>
       </PageContainer>
 
-      <PaymentDialog
-        open={payOpen}
-        sale={sale}
-        rates={rates}
-        rateHistory={rateHistory}
-        onOpenChange={setPayOpen}
-        onSaved={setSale}
-      />
+      {sale.layaway ? (
+        <ApartadoPaymentDialog
+          open={payOpen}
+          sale={sale}
+          rates={rates}
+          rateHistory={rateHistory}
+          onOpenChange={setPayOpen}
+          onSaved={setSale}
+        />
+      ) : (
+        <PaymentDialog
+          open={payOpen}
+          sale={sale}
+          rates={rates}
+          rateHistory={rateHistory}
+          onOpenChange={setPayOpen}
+          onSaved={setSale}
+        />
+      )}
 
       <ConfirmDialog
         open={confirm !== null}

@@ -375,6 +375,53 @@ export interface SaleDeliveryInput {
   lng?: number | null
 }
 
+/** Términos del contrato de venta por apartado (condición de pago "Apartado"). */
+export interface SaleLayaway {
+  id: string
+  saleId: string
+  /** N° de contrato */
+  number: number
+  /** Fecha de firma */
+  startAt: string
+  downPaymentUsd: number
+  installments: number
+  everyDays: number
+  deadlineDays: number
+  /** % de la inicial que se retiene si no completa el pago */
+  penaltyPct: number
+  serial: string | null
+}
+
+export type LayawayRowStatus = 'PAGADA' | 'PARCIAL' | 'SIN_PAGO' | 'PENDIENTE'
+
+/** Cronograma recalculado con los pagos reales (backend: src/sales/layaway.js). */
+export interface LayawaySchedule {
+  rows: Array<{
+    label: string
+    dueAt: string
+    expectedUsd: number
+    paidUsd: number
+    status: LayawayRowStatus
+    payments: Payment[]
+  }>
+  totalUsd: number
+  paidUsd: number
+  remainingUsd: number
+  deadlineAt: string
+  overdue: boolean
+  penaltyUsd: number
+  next: { index: number; label: string; dueAt: string; amountUsd: number } | null
+}
+
+export interface LayawayInput {
+  downPaymentUsd: number
+  installments?: number
+  everyDays?: number
+  deadlineDays?: number
+  penaltyPct?: number
+  serial?: string | null
+}
+
 export interface Sale {
   id: string
   customerId: string
@@ -401,6 +448,9 @@ export interface Sale {
   balanceBs: number | null
   bsRate: BsRateQuote | null
   paymentMismatch: boolean
+  /** null = venta normal (contado/crédito según pagos) */
+  layaway: SaleLayaway | null
+  schedule: LayawaySchedule | null
   /** null si falta snapshot de costo en algún ítem */
   costUsd?: number | null
   /** Gastos internos (charges no cobrados al cliente) */
@@ -429,6 +479,8 @@ export interface CreateSalePayload {
   note?: string | null
   delivery?: SaleDeliveryInput
   charges?: SaleChargeInput[]
+  /** null = venta normal; en edición, omitido = no tocar */
+  layaway?: LayawayInput | null
 }
 
 export type DeliveryNoteStatus = 'ACTIVA' | 'ANULADA'
@@ -895,6 +947,7 @@ export interface CashMovement {
   agentName: string | null
   paymentId: string | null
   currencyPurchaseId: string | null
+  transferId: string | null
   createdAt: string
   /** Saldo corrido después de este movimiento (detalle). */
   balance?: number
@@ -936,5 +989,25 @@ export interface CreateCashMovementPayload {
   reason?: CashMovementReason
   amount?: number
   delta?: number
+  note?: string | null
+}
+
+export interface CashTransfer {
+  id: string
+  fromAccountId: string
+  toAccountId: string
+  amountSent: number
+  feePercent: number
+  amountReceived: number
+  note: string | null
+  agentName: string | null
+  createdAt: string
+}
+
+export interface CreateCashTransferPayload {
+  fromAccountId: string
+  toAccountId: string
+  amountSent: number
+  feePercent?: number
   note?: string | null
 }

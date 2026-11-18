@@ -41,6 +41,8 @@ import type {
   PatchCashAccountPayload,
   CreateCashMovementPayload,
   CashMovement,
+  CashTransfer,
+  CreateCashTransferPayload,
   Me,
   StaffMember,
   StaffRole,
@@ -316,6 +318,14 @@ export const api = {
       method: 'DELETE',
     }),
 
+  getSaleContractPdf: (token: string, saleId: string) =>
+    requestBlob(`/sales/${saleId}/contract.pdf`, token),
+
+  createContractLink: (token: string, saleId: string) =>
+    request<{ url: string; expiresAt: string }>(`/sales/${saleId}/contract-link`, token, {
+      method: 'POST',
+    }),
+
   voidSale: (token: string, saleId: string) =>
     request<Sale>(`/sales/${saleId}/void`, token, { method: 'POST' }),
 
@@ -583,7 +593,14 @@ export const api = {
       { method: 'POST', body: JSON.stringify(data) },
     ),
 
-  getMe: (token: string) => request<Me>('/me', token),
+  createCashTransfer: (token: string, data: CreateCashTransferPayload) =>
+    request<{ transfer: CashTransfer; from: CashAccount; to: CashAccount }>(
+      '/cash-transfers',
+      token,
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+
+  getMe:(token: string) => request<Me>('/me', token),
 
   getStaff: (token: string) => request<StaffMember[]>('/staff', token),
 

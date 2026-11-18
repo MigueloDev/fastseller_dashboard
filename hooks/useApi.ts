@@ -16,6 +16,7 @@ import type {
   CreateCashAccountPayload,
   PatchCashAccountPayload,
   CreateCashMovementPayload,
+  CreateCashTransferPayload,
   ProductWritePayload,
   StaffRole,
 } from '@/types'
@@ -157,6 +158,12 @@ export function useApi() {
     deletePaymentReceipt: (paymentId: string) =>
       withToken(token => api.deletePaymentReceipt(token, paymentId)),
 
+    getSaleContractPdf: (saleId: string) =>
+      withToken(token => api.getSaleContractPdf(token, saleId)),
+
+    createContractLink: (saleId: string) =>
+      withToken(token => api.createContractLink(token, saleId)),
+
     voidSale: (saleId: string) =>
       withToken(token => api.voidSale(token, saleId)),
 
@@ -261,6 +268,9 @@ export function useApi() {
 
     createCashMovement: (accountId: string, data: CreateCashMovementPayload) =>
       withToken(token => api.createCashMovement(token, accountId, data)),
+
+    createCashTransfer: (data: CreateCashTransferPayload) =>
+      withToken(token => api.createCashTransfer(token, data)),
 
     getMe: () => withToken(token => api.getMe(token)),
 
